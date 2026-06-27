@@ -1,0 +1,3 @@
+- https://resources.anthropic.com/hubfs/The-Complete-Guide-to-Building-Skill-for-Claude.pdf
+- https://www.anthropic.com/engineering/building-effective-agents
+- 
