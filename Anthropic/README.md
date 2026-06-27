@@ -1,5 +1,6 @@
 - https://resources.anthropic.com/hubfs/The-Complete-Guide-to-Building-Skill-for-Claude.pdf
 - https://www.anthropic.com/engineering/building-effective-agents
+- https://github.com/sanbuphy/learn-coding-agent
 - https://github.com/ntiwari78/AIAgents/blob/main/Anthropic/Building%20Effective%20AI%20Agents-%20Architecture%20Patterns%20and%20Implementation%20Frameworks.pdf
 - https://github.com/vercel-labs/skills
 ~~~
