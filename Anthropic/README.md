@@ -2,3 +2,6 @@
 - https://www.anthropic.com/engineering/building-effective-agents
 - https://github.com/ntiwari78/AIAgents/blob/main/Anthropic/Building%20Effective%20AI%20Agents-%20Architecture%20Patterns%20and%20Implementation%20Frameworks.pdf
 - https://github.com/vercel-labs/skills
+~~~
+npx skills add http://github.com/vercel-labs/skills --skill find-skills
+~~~
