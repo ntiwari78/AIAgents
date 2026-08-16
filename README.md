@@ -5,3 +5,6 @@
 
 ## AI Agents from Scratch
 - https://github.com/pguso/agents-from-scratch
+
+## MIT's Missing Semester
+- https://missing.csail.mit.edu/
