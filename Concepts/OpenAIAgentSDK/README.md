@@ -525,3 +525,893 @@ The underlying system remains largely composed of **LLM calls, prompts, tool cal
 * [OpenAI Agents SDK — Tracing](https://openai.github.io/openai-agents-python/tracing/)
 * [Python `asyncio` Documentation](https://docs.python.org/3/library/asyncio.html)
 * [Python Coroutines and Tasks](https://docs.python.org/3/library/asyncio-task.html)
+
+---
+---
+
+# Week 2 Day 2 — Agent Orchestration and Automated SDR
+
+## 1. Main Project: Automated SDR
+
+The day's practical project is an **automated sales development representative (SDR)** system.
+
+The system uses multiple agents to:
+
+1. Generate different sales emails.
+2. Evaluate/select the best email.
+3. Send the selected email.
+4. Explore different ways for agents to collaborate.
+
+The project demonstrates **agent orchestration** using the OpenAI Agents SDK.
+
+The important underlying idea is:
+
+> Multi-agent systems are still fundamentally LLM calls, prompts, messages, conversation history, and tool calls.
+
+There is no "magic" happening behind the framework.
+
+[OpenAI Agents SDK](https://openai.github.io/openai-agents-python/)
+
+---
+
+# 2. Agent Orchestration
+
+**Orchestration** means controlling:
+
+* Which agents run
+* In what order they run
+* How they communicate
+* How decisions are made
+* Which agent is responsible for the next step
+
+The lesson covers two major approaches:
+
+```text
+                    Agent Orchestration
+                           │
+             ┌─────────────┴─────────────┐
+             │                           │
+       Orchestrating                Orchestrating
+         by Code                       by LLM
+             │                           │
+      Deterministic              Autonomous
+      Predictable                Flexible
+             │                           │
+                         ┌───────────────┴──────────────┐
+                         │                              │
+                   Agents as Tools                 Handoffs
+```
+
+OpenAI's documentation describes the same two broad approaches: **orchestration via code** and **allowing the LLM to make orchestration decisions**.
+
+[OpenAI Agents SDK — Agent Orchestration](https://openai.github.io/openai-agents-python/multi_agent/)
+
+---
+
+# 3. Orchestration by Code
+
+This is the simplest and most predictable approach.
+
+The application explicitly determines which agent runs next.
+
+For example:
+
+```text
+Agent A
+   ↓
+Output
+   ↓
+Python code
+   ↓
+Agent B
+   ↓
+Output
+   ↓
+Agent C
+```
+
+In Python, this can simply mean making multiple `Runner.run()` calls.
+
+### Advantages
+
+* Predictable
+* Deterministic
+* Easy to understand
+* Easy to debug
+* Easy to log
+* Easier to test
+* Appropriate for business-critical workflows
+
+### Key principle
+
+> If you already know the workflow, there is often little reason to ask an LLM to decide the workflow.
+
+---
+
+# 4. Orchestration by LLM
+
+With LLM-based orchestration, the LLM itself decides which agent/tool to use next.
+
+Instead of writing:
+
+```text
+Run Agent A
+→ Run Agent B
+→ Run Agent C
+```
+
+you give an agent several capabilities and allow the model to determine what to do.
+
+This provides:
+
+* More autonomy
+* More flexibility
+* More adaptive workflows
+* Greater ability to handle open-ended tasks
+
+But it also introduces:
+
+* Less predictability
+* Less deterministic behavior
+* Greater variability
+* More difficulty in testing
+
+OpenAI's documentation describes LLM orchestration as allowing an LLM to plan, reason, and decide which steps to take.
+
+---
+
+# 5. When to Use Each Approach
+
+A useful decision rule from the lesson is:
+
+| Situation                           | Preferred approach     |
+| ----------------------------------- | ---------------------- |
+| Fixed business workflow             | **Code orchestration** |
+| Business-critical decisions         | **Code orchestration** |
+| Predictability is important         | **Code orchestration** |
+| Clearly defined sequence            | **Code orchestration** |
+| Open-ended task                     | **LLM orchestration**  |
+| High autonomy required              | **LLM orchestration**  |
+| Agent needs to choose its own path  | **LLM orchestration**  |
+| Coding agents / autonomous products | **LLM orchestration**  |
+
+The lesson uses coding agents such as Claude Code and Codex as examples where LLM-driven orchestration is valuable because autonomy is central to the product.
+
+---
+
+# 6. Parallel Agent Execution with `asyncio.gather`
+
+The SDR example creates three different sales agents:
+
+1. **Professional Sales Agent**
+2. **Humorous Sales Agent**
+3. **Executive Sales Agent**
+
+Each generates the same sales email in a different style.
+
+Instead of running them sequentially, the lesson uses:
+
+```python
+await asyncio.gather(
+    Runner.run(agent1, prompt),
+    Runner.run(agent2, prompt),
+    Runner.run(agent3, prompt),
+)
+```
+
+This allows the three I/O-bound LLM requests to make progress concurrently.
+
+### Important connection to Day 1
+
+This builds directly on the previous lesson's `asyncio` concepts.
+
+The framework is not magically making the agents parallel.
+
+**Python's asynchronous execution is doing the work.**
+
+---
+
+# 7. The Three Sales Agents
+
+The example uses the same underlying business context but different writing styles.
+
+### Professional Agent
+
+Produces an email that is:
+
+* Professional
+* Serious
+* Credible
+* Formal
+
+### Humorous Agent
+
+Produces an email that is:
+
+* Witty
+* Engaging
+* Humorous
+
+### Executive Agent
+
+Produces an email that is:
+
+* Concise
+* Direct
+* Appropriate for a busy executive
+
+This is a useful multi-agent pattern:
+
+> **Same task + different specialized prompts → multiple candidate outputs**
+
+---
+
+# 8. The Sales Picker
+
+After generating three emails, another agent—the **Sales Picker**—evaluates them.
+
+Its job is essentially:
+
+```text
+Three candidate emails
+        ↓
+Sales Picker
+        ↓
+Best email
+```
+
+The picker is instructed to think like a potential customer and select the email it would be most likely to respond to.
+
+This demonstrates a common agent pattern:
+
+> **Generate → Evaluate → Select**
+
+---
+
+# 9. Agent Collaboration Is Often Just Message Passing
+
+One of the most important conceptual points is that agent collaboration can look much more sophisticated than it actually is.
+
+Underneath:
+
+```text
+Agent A
+  ↓
+Output
+  ↓
+Prompt construction
+  ↓
+Agent B
+  ↓
+Output
+```
+
+There is no fundamentally new intelligence created merely by adding multiple agents.
+
+The quality still depends heavily on:
+
+* Prompts
+* Context
+* Model capabilities
+* Tool definitions
+* Evaluation
+* Workflow design
+
+---
+
+# 10. Structured Outputs
+
+The lesson also introduces **structured outputs** as a way of making orchestration more controlled.
+
+Instead of asking an LLM to return free-form text, you can require a structured object such as JSON.
+
+Conceptually:
+
+```text
+LLM
+ ↓
+Structured output
+ ↓
+Python code
+ ↓
+Decision
+ ↓
+Next agent
+```
+
+This provides more control than interpreting arbitrary natural-language output.
+
+### Why structured outputs matter
+
+They can make agent workflows:
+
+* More predictable
+* Easier to validate
+* Easier to parse
+* Easier to integrate with application logic
+
+The lesson emphasizes that structured outputs sit somewhat between pure code orchestration and LLM-driven orchestration.
+
+---
+
+# 11. Production Systems Favor Predictability
+
+A major takeaway is that production agentic systems often favor **code-driven orchestration**.
+
+Why?
+
+Because business systems frequently need:
+
+* Predictable behavior
+* Deterministic workflows
+* Clear failure modes
+* Auditable execution
+* Easier testing
+* Controlled business logic
+
+Giving an LLM complete control over the workflow can make behavior harder to predict.
+
+Therefore:
+
+> **Use LLM autonomy when autonomy provides real value—not simply because the framework makes it possible.**
+
+---
+
+# 12. Function Tools
+
+The project also demonstrates turning a normal Python function into an agent tool.
+
+For example:
+
+```python
+@function_tool
+def send_email_tool(
+    subject: str,
+    text_body: str,
+    html_body: str
+):
+    ...
+```
+
+The SDK can derive the tool schema from:
+
+* Function name
+* Type hints
+* Docstring
+* Parameter descriptions
+
+This avoids manually writing the complete JSON schema.
+
+[OpenAI Agents SDK — Tools](https://openai.github.io/openai-agents-python/tools/)
+
+---
+
+# 13. Good Tool Documentation Matters
+
+The lesson demonstrates that a tool's docstring is important because the description is exposed to the LLM.
+
+For example:
+
+```python
+def send_email_tool(
+    subject: str,
+    text_body: str,
+    html_body: str
+):
+    """
+    Send an email.
+
+    subject: Subject of the email.
+    text_body: Plain-text body.
+    html_body: HTML body.
+    """
+```
+
+The resulting tool schema can communicate:
+
+* What the tool does
+* What parameters it accepts
+* What each parameter means
+* What data types are expected
+
+### Key lesson
+
+> **Tool descriptions are part of the prompt/context provided to the model.**
+
+Poor descriptions can therefore produce poor tool usage.
+
+---
+
+# 14. Forcing Tool Usage
+
+The lesson encounters a practical problem: the model sometimes doesn't call the email tool even when instructed to do so.
+
+A framework setting can require tool usage.
+
+This illustrates a broader lesson:
+
+> Prompting alone is not always sufficient when a particular behavior is mandatory.
+
+When a workflow has a hard requirement, application-level controls can be preferable to hoping the LLM follows instructions every time.
+
+---
+
+# 15. Agents as Tools
+
+The first LLM-based orchestration technique is **agents as tools**.
+
+An existing agent can be converted into a tool using:
+
+```python
+sales_agent.as_tool(...)
+```
+
+Conceptually:
+
+```text
+Manager Agent
+     │
+     ├── Sales Writer 1
+     ├── Sales Writer 2
+     ├── Sales Writer 3
+     └── Send Email
+```
+
+The manager remains in control.
+
+It decides:
+
+* Which specialist to call
+* What to ask it
+* When to call it
+* What to do with its output
+
+OpenAI's current documentation describes this as the **manager pattern**: the central agent retains control and invokes specialist agents as tools.
+
+[OpenAI Agents SDK — Agents as Tools](https://openai.github.io/openai-agents-python/tools/)
+
+---
+
+# 16. Why Agents-as-Tools Can Be Useful
+
+This pattern works particularly well when:
+
+* One agent should remain responsible for the final result.
+* Specialist agents perform bounded subtasks.
+* Their results need to be combined.
+* A manager needs to evaluate several specialists.
+* Shared controls/guardrails should remain with the manager.
+
+Example:
+
+```text
+                Manager
+                   │
+       ┌───────────┼───────────┐
+       ↓           ↓           ↓
+   Researcher   Writer      Analyst
+       │           │           │
+       └───────────┼───────────┘
+                   ↓
+             Final Answer
+```
+
+---
+
+# 17. Handoffs
+
+The second LLM-driven orchestration mechanism is **handoffs**.
+
+A handoff transfers control from one agent to another.
+
+Conceptually:
+
+```text
+Agent A
+   │
+   │ handoff
+   ↓
+Agent B
+   │
+   ↓
+Agent C
+```
+
+The key difference is:
+
+### Agents as tools
+
+```text
+Manager → Specialist → Manager
+```
+
+The manager retains control.
+
+### Handoff
+
+```text
+Manager → Specialist
+```
+
+The specialist takes over.
+
+OpenAI's documentation explicitly distinguishes these patterns: with agents-as-tools, the manager remains responsible for the conversation; with handoffs, the receiving specialist becomes the active agent.
+
+[OpenAI Agents SDK — Handoffs](https://openai.github.io/openai-agents-python/handoffs/)
+
+---
+
+# 18. Agents-as-Tools vs Handoffs
+
+| Feature                   | Agents as Tools | Handoffs        |
+| ------------------------- | --------------- | --------------- |
+| Manager retains control   | Yes             | No              |
+| Specialist takes over     | No              | Yes             |
+| Specialist returns result | Yes             | Not necessarily |
+| Good for bounded subtasks | **Yes**         | Sometimes       |
+| Good for routing          | Sometimes       | **Yes**         |
+| Final conversation owner  | Manager         | Specialist      |
+| Workflow style            | Centralized     | Delegated       |
+
+A useful mental model:
+
+> **Tools = "Help me do this."**
+
+> **Handoff = "You take over from here."**
+
+---
+
+# 19. Handoffs Are Still Tools Under the Hood
+
+An important technical insight from the lesson is that handoffs are exposed to the LLM through tool-like mechanisms.
+
+The current OpenAI documentation confirms that handoffs are represented to the LLM as tools such as `transfer_to_<agent>`.
+
+This reinforces the overall theme:
+
+> Framework abstractions often reduce to familiar primitives such as prompts, tool calls, and messages.
+
+---
+
+# 20. Observability Is Essential
+
+The lesson repeatedly returns to **tracing**.
+
+For a multi-agent system, tracing allows you to see:
+
+```text
+Sales Manager
+    │
+    ├── Professional Agent
+    ├── Humorous Agent
+    ├── Executive Agent
+    │
+    └── Sales Picker
+           │
+           ↓
+       Send Email
+```
+
+You can inspect:
+
+* Which agents ran
+* The order of execution
+* Parallel execution
+* Prompts
+* Outputs
+* Tool calls
+* Tool parameters
+* Final results
+
+This makes it possible to determine whether the system actually behaved as intended.
+
+[OpenAI Agents SDK — Tracing](https://openai.github.io/openai-agents-python/tracing/)
+
+---
+
+# 21. Don't Anthropomorphize Agents
+
+A particularly useful engineering principle is:
+
+> **Don't assume the agent understands what you intended. Inspect what actually happened.**
+
+Instead of thinking:
+
+> "The sales manager decided that the humorous email was best."
+
+Look at:
+
+* The actual system prompt
+* The user prompt
+* The candidate emails
+* The tool calls
+* The model output
+* The trace
+
+This turns debugging into an empirical process rather than guesswork.
+
+---
+
+# 22. Email Infrastructure
+
+The lesson deliberately keeps email infrastructure lightweight because the primary objective is **agent orchestration**, not email delivery.
+
+Three approaches are discussed:
+
+### SMTP
+
+Use an existing email provider's SMTP server.
+
+Examples mentioned include:
+
+```text
+Gmail       → smtp.gmail.com
+Outlook     → smtp-mail.outlook.com
+Microsoft 365 → smtp.office365.com
+iCloud      → smtp.mail.me.com
+```
+
+### Pushover
+
+Instead of sending an email, the system can send a push notification.
+
+This is useful for development/testing.
+
+### Professional email APIs
+
+For a real production system, services such as **SendGrid** or **Resend** can be considered.
+
+[SendGrid API Documentation](https://www.twilio.com/docs/sendgrid/api-reference)
+
+---
+
+# 23. Why the Course Avoids Bulk Email Setup
+
+Services such as SendGrid are designed for email at scale and therefore require more configuration around:
+
+* Domain ownership
+* DNS
+* Authentication
+* Email reputation
+* Sending infrastructure
+
+The course intentionally avoids spending most of the lab on those details.
+
+The point is:
+
+> **Demonstrate agent collaboration rather than build a production email-delivery platform.**
+
+---
+
+# 24. The Biggest Mistake: No Quantitative Evaluation
+
+The instructor explicitly identifies a weakness in the lab.
+
+The system generates and selects emails, but it does **not** quantitatively prove that the selected emails are effective.
+
+This is extremely important.
+
+An LLM is very good at generating **plausible content**.
+
+That does not mean the content is commercially effective.
+
+For sales automation, useful metrics might include:
+
+* Open rate
+* Reply rate
+* Positive reply rate
+* Meeting-booking rate
+* Conversion rate
+* Revenue generated
+* Deals won
+
+### Critical principle
+
+```text
+Generate content
+       ↓
+Measure real-world outcome
+       ↓
+Evaluate
+       ↓
+Improve prompts/workflow
+       ↓
+Measure again
+```
+
+---
+
+# 25. The Difference Between "Looks Good" and "Works"
+
+An email may sound excellent while producing zero sales.
+
+Therefore:
+
+> **Human/LLM judgment of content quality is not the same as business performance.**
+
+For production systems, evaluation should ultimately connect agent behavior to actual business KPIs.
+
+This is one of the most important lessons of the entire session.
+
+---
+
+# 26. Iterative Prompt Engineering
+
+When the agent behaves unpredictably:
+
+1. Inspect the trace.
+2. Identify the undesirable behavior.
+3. Modify the prompt.
+4. Test again.
+5. Compare results.
+6. Repeat.
+
+The instructor describes this as a highly:
+
+* Empirical
+* Experimental
+* Iterative
+
+process.
+
+Agent engineering is therefore not simply:
+
+```text
+Write prompt → Done
+```
+
+It is closer to:
+
+```text
+Prompt
+ ↓
+Run
+ ↓
+Observe
+ ↓
+Evaluate
+ ↓
+Modify
+ ↓
+Run again
+```
+
+---
+
+# 27. Harder Extension: Full Automated Sales Agent
+
+The optional challenge is to move beyond an automated SDR.
+
+Instead of:
+
+```text
+Generate email
+      ↓
+Send email
+```
+
+build:
+
+```text
+Generate email
+      ↓
+Send email
+      ↓
+Receive reply
+      ↓
+Continue conversation
+      ↓
+Handle objections
+      ↓
+Qualify prospect
+      ↓
+Move toward closing
+```
+
+This would create a much more complete **automated sales agent**.
+
+---
+
+# 28. Other Possible Extensions
+
+The lesson suggests several extensions:
+
+* Add an agent that **refines/improves generated emails**.
+* Build the extension using **all three orchestration patterns**.
+* Replace basic SMTP with a professional email provider.
+* Allow the agent to continue conversations after replies.
+* Integrate with **Telegram**.
+* Extend the system toward automated deal closing.
+
+[Telegram Bot API](https://core.telegram.org/bots/api)
+
+---
+
+# 29. Generalization Beyond Sales
+
+The same architecture can apply to many business processes involving:
+
+* Conversations
+* User interactions
+* Decisions
+* Content generation
+* External tools
+* Multiple specialized agents
+
+Examples could include:
+
+```text
+Customer support
+Research
+Recruiting
+Marketing
+Operations
+Lead qualification
+Content workflows
+Internal knowledge systems
+```
+
+The important question is not:
+
+> "Can I use multiple agents?"
+
+It is:
+
+> **"Does multiple-agent orchestration produce a measurable improvement in the business process?"**
+
+---
+
+# 30. Most Important Takeaways
+
+1. **Agent orchestration controls how multiple agents collaborate.**
+2. There are two broad approaches: **orchestration by code** and **orchestration by LLM**.
+3. **Code orchestration is more predictable and deterministic.**
+4. **LLM orchestration provides greater autonomy but less predictability.**
+5. `asyncio.gather()` can run multiple independent LLM calls concurrently.
+6. A common pattern is **generate multiple candidates → evaluate/select one**.
+7. `Agent.as_tool()` allows one agent to use another agent as a tool.
+8. **Agents-as-tools keep the manager in control.**
+9. **Handoffs transfer control to another agent.**
+10. Tools and handoffs are both mechanisms for agent collaboration.
+11. Tool descriptions, type hints, and docstrings are important because they become part of the model's context.
+12. **Tracing is essential for debugging multi-agent workflows.**
+13. Don't anthropomorphize agents—inspect their actual prompts, tool calls, and outputs.
+14. Start with the simplest architecture that solves the problem.
+15. Don't introduce multi-agent complexity merely because the framework supports it.
+16. **LLM-generated content being plausible does not mean it is effective.**
+17. Production systems should be evaluated against **real business KPIs**.
+18. Prompt and workflow development is an **iterative empirical process**.
+19. Use LLM orchestration when autonomy is genuinely valuable.
+20. Use code orchestration when predictability and control matter more.
+
+---
+
+# Quick Revision Cheat Sheet
+
+| Concept                      | Remember                                        |
+| ---------------------------- | ----------------------------------------------- |
+| **Orchestration**            | Managing how agents collaborate                 |
+| **Code orchestration**       | Python controls the workflow                    |
+| **LLM orchestration**        | LLM controls the workflow                       |
+| **`asyncio.gather()`**       | Run independent async tasks concurrently        |
+| **Agents as tools**          | Manager calls specialists but retains control   |
+| **Handoff**                  | Specialist takes over                           |
+| **Function tool**            | Python function exposed to an agent             |
+| **Tracing**                  | Inspect what actually happened                  |
+| **Structured output**        | Predictable machine-readable model output       |
+| **SDR example**              | Generate → evaluate → select → send             |
+| **Production priority**      | Predictability + measurable outcomes            |
+| **Key evaluation principle** | Measure business results, not just text quality |
+
+---
+
+# References
+
+* [OpenAI Agents SDK — Python](https://openai.github.io/openai-agents-python/)
+* [OpenAI Agents SDK — Agent Orchestration](https://openai.github.io/openai-agents-python/multi_agent/)
+* [OpenAI Agents SDK — Agents](https://openai.github.io/openai-agents-python/agents/)
+* [OpenAI Agents SDK — Tools](https://openai.github.io/openai-agents-python/tools/)
+* [OpenAI Agents SDK — Handoffs](https://openai.github.io/openai-agents-python/handoffs/)
+* [OpenAI Agents SDK — Tracing](https://openai.github.io/openai-agents-python/tracing/)
+* [SendGrid API Documentation](https://www.twilio.com/docs/sendgrid/api-reference)
+* [Telegram Bot API](https://core.telegram.org/bots/api)
