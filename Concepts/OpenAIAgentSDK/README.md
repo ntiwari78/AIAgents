@@ -2664,3 +2664,2820 @@ The entire lesson can be compressed into this:
 **The deepest lesson:** don't think of an agent as a mysterious autonomous entity. Think of it as an LLM embedded inside a software system. **Code controls the workflow, tools provide capabilities, structured outputs create reliable interfaces, guardrails enforce constraints, tracing provides visibility, sandboxes provide safe execution, and MCP connects the system to external capabilities.**
 
 The uploaded transcript itself demonstrates this progression from simple multi-agent orchestration to a complete deep-research workflow.
+
+
+---
+---
+
+# Week 2 Day 5 — Deep Research Agent: Python Modules, Gradio UI & Deployment
+
+## 1. Main Goal
+
+The goal of Day 5 is to take the Deep Research Agent built in Jupyter notebooks and turn it into a **deployable AI application**.
+
+The progression is:
+
+```text
+Jupyter Notebook
+      ↓
+Python Modules
+      ↓
+Research Manager
+      ↓
+Gradio UI
+      ↓
+Hugging Face Spaces
+      ↓
+Live Deep Research Application
+```
+
+The project is the classic **agentic AI deep-research use case**.
+
+---
+
+# 2. The Four-Agent Architecture
+
+The previous day's research system consisted of four agents:
+
+1. **Search Agent**
+2. **Planner Agent**
+3. **Writer Agent**
+4. **Email Agent**
+
+The Day 5 task is to move each of these from notebook cells into reusable Python modules.
+
+```text
+                    User Question
+                         │
+                         ▼
+                  Planner Agent
+                         │
+                  Search Plan
+                         │
+          ┌──────────────┼──────────────┐
+          ▼              ▼              ▼
+       Search          Search         Search
+       Agent           Agent          Agent
+          └──────────────┼──────────────┘
+                         ▼
+                   Writer Agent
+                         │
+                         ▼
+                   Research Report
+                         │
+                         ▼
+                   Email Agent
+```
+
+This modular structure makes the application easier to maintain, test, reuse, and deploy.
+
+The OpenAI Agents SDK similarly treats agents as reusable components defined with instructions, tools, models, and optional structured outputs. ([OpenAI Agents SDK](https://openai.github.io/openai-agents-python/))
+
+---
+
+# 3. Search Agent Module
+
+The Search Agent is responsible for searching the web.
+
+Its configuration includes:
+
+* Instructions
+* Web search tool
+* Model
+* Model settings
+
+The transcript also introduces a useful configuration pattern:
+
+```text
+.env
+  ↓
+DEFAULT_MODEL_NAME
+  ↓
+Search Agent
+```
+
+If a model name is provided through `.env`, the application uses it.
+
+Otherwise, it falls back to a default model.
+
+### Why this is useful
+
+You don't have to modify Python source code every time you want to change the model.
+
+For example:
+
+```text
+Development
+→ cheaper/faster model
+
+Production
+→ more capable model
+```
+
+This is a good example of separating **configuration from application code**.
+
+---
+
+# 4. Planner Agent
+
+The Planner Agent converts a user question into multiple searches.
+
+The transcript continues using structured output with Pydantic models.
+
+Conceptually:
+
+```python
+class WebSearchItem(BaseModel):
+    reason: str
+    query: str
+
+
+class WebSearchPlan(BaseModel):
+    searches: list[WebSearchItem]
+```
+
+The planner then uses:
+
+```text
+output_type = WebSearchPlan
+```
+
+so that the result can be handled programmatically.
+
+The current Agents SDK supports Pydantic models and other Pydantic-compatible types as structured output types.
+
+### Key idea
+
+Instead of asking:
+
+> "Give me some searches."
+
+the application receives something structurally like:
+
+```text
+WebSearchPlan
+ ├── Search 1
+ ├── Search 2
+ ├── Search 3
+ ├── Search 4
+ └── Search 5
+```
+
+This makes downstream processing much more reliable.
+
+---
+
+# 5. Writer Agent
+
+The Writer Agent takes the results of the searches and creates the final research report.
+
+It also uses structured output.
+
+Conceptually:
+
+```text
+Search Results
+      ↓
+Writer Agent
+      ↓
+ReportData
+ ├── Summary
+ ├── Detailed Report
+ └── Follow-up Questions
+```
+
+One important lesson from the transcript is that **the notebook phase is where you refine prompts**.
+
+The recommended workflow is:
+
+```text
+Experiment in notebook
+        ↓
+Iterate on instructions
+        ↓
+Evaluate results
+        ↓
+Refine prompts
+        ↓
+Move stable version into Python module
+```
+
+This is a very practical development strategy for agentic applications.
+
+---
+
+# 6. Email Agent
+
+The fourth agent is the Email Agent.
+
+Its responsibilities are simple:
+
+```text
+Research Report
+      ↓
+Email Agent
+      ↓
+Send Email
+```
+
+The email agent has:
+
+* Instructions
+* Model
+* Email-sending tool
+
+An important improvement in this version is requiring the agent to actually use the tool.
+
+Conceptually:
+
+```text
+Agent
+  ↓
+Must use send_email tool
+  ↓
+Email sent
+```
+
+This prevents the agent from merely describing what it would send instead of actually invoking the tool.
+
+---
+
+# 7. Email vs Push Notifications
+
+The application supports two output mechanisms:
+
+```text
+USE_EMAIL=true
+      ↓
+Email
+
+
+USE_EMAIL=false
+      ↓
+Push notification
+```
+
+This is another example of configuration through `.env`.
+
+The important architectural lesson is:
+
+> Keep the agent logic independent from the delivery mechanism.
+
+The research system should generate the report; another component determines how that report reaches the user.
+
+---
+
+# 8. `researchmanager.py`
+
+After defining the four agents, the next layer is the **Research Manager**.
+
+This module contains the Python functions that actually execute the agents.
+
+The transcript defines functions conceptually equivalent to:
+
+```text
+plan_searches()
+perform_searches()
+search()
+write_report()
+send_email()
+```
+
+Each function is responsible for one step of the workflow.
+
+---
+
+# 9. Separating Planning from Searching
+
+An important design decision is separating:
+
+```text
+Planning
+```
+
+from:
+
+```text
+Executing searches
+```
+
+The workflow becomes:
+
+```text
+User Question
+     ↓
+plan_searches()
+     ↓
+Search Plan
+     ↓
+perform_searches()
+     ↓
+Search Results
+```
+
+This separation is useful because it makes each stage:
+
+* Easier to test
+* Easier to debug
+* Easier to modify
+* Easier to evaluate
+
+---
+
+# 10. Parallel Search Execution
+
+The individual searches can run concurrently.
+
+The transcript uses:
+
+```python
+asyncio.gather(...)
+```
+
+Conceptually:
+
+```text
+Search 1 ─┐
+Search 2 ─┤
+Search 3 ─┼──→ Search Results
+Search 4 ─┤
+Search 5 ─┘
+```
+
+Instead of:
+
+```text
+Search 1
+   ↓
+Search 2
+   ↓
+Search 3
+   ↓
+Search 4
+   ↓
+Search 5
+```
+
+### Why this matters
+
+Parallel execution can significantly reduce total latency when the searches are independent.
+
+This is one of the major advantages of using asynchronous Python for agent workflows.
+
+---
+
+# 11. `ResearchManager`
+
+The transcript wraps the entire workflow inside a class:
+
+```python
+ResearchManager
+```
+
+Its main `run()` method performs:
+
+```text
+1. Plan searches
+2. Perform searches
+3. Write report
+4. Send email
+```
+
+Conceptually:
+
+```python
+async def run(query):
+    plan = await plan_searches(query)
+    results = await perform_searches(plan)
+    report = await write_report(results)
+    await send_email(report)
+```
+
+The major benefit is that the entire workflow is visible in one place.
+
+This makes the orchestration logic much easier to understand.
+
+---
+
+# 12. Python Generators and `yield`
+
+One of the more important Python concepts introduced is `yield`.
+
+Instead of the `run()` function returning only once at the end, it can produce intermediate results:
+
+```text
+run()
+ ↓
+yield "Planning searches..."
+ ↓
+yield "Searching..."
+ ↓
+yield "Writing report..."
+ ↓
+yield "Sending email..."
+ ↓
+yield "Complete"
+```
+
+This turns the function into a **generator**.
+
+### Why use it here?
+
+Because Gradio can use those intermediate values to update the UI while the research process is still running.
+
+The architecture becomes:
+
+```text
+Research Manager
+      ↓
+yield status
+      ↓
+Gradio UI
+      ↓
+Update screen
+```
+
+This makes a long-running agent workflow feel interactive rather than frozen.
+
+---
+
+# 13. Gradio
+
+The next major step is adding a user interface using **Gradio**.
+
+The basic UI contains:
+
+* A text box for the research question
+* A button to start research
+* A field to display the result/status
+
+The application connects:
+
+```text
+Gradio Button
+      ↓
+Callback Function
+      ↓
+ResearchManager.run()
+      ↓
+yield status updates
+      ↓
+Gradio displays updates
+```
+
+Gradio is designed for quickly creating web interfaces around Python applications and models.
+
+[Gradio Documentation](https://www.gradio.app/docs/)
+
+---
+
+# 14. Simple UI First
+
+The transcript initially creates a very simple `simple.py`.
+
+This is a valuable development principle:
+
+> **Get the functionality working before worrying about visual polish.**
+
+The first version focuses on:
+
+```text
+Does the application work?
+```
+
+rather than:
+
+```text
+Does the application look beautiful?
+```
+
+Only after the underlying workflow works does the transcript improve the UI.
+
+---
+
+# 15. UI Refinement
+
+The transcript then uses a coding agent to improve the UI.
+
+The coding agent:
+
+* Refactors the interface
+* Adds styling
+* Adds CSS
+* Adds JavaScript
+* Adds better layout
+* Adds colors
+* Adds example questions
+* Improves presentation
+* Adds light/dark mode
+
+The important lesson isn't the specific CSS.
+
+It is this:
+
+> Coding agents can be used as development assistants to transform a functional prototype into a polished interface.
+
+The architecture remains essentially the same:
+
+```text
+ResearchManager
+      ↓
+Gradio
+      ↓
+Styled UI
+```
+
+Only the presentation layer changes.
+
+---
+
+# 16. Live Progress in the UI
+
+One particularly useful feature is showing progress while the research is happening.
+
+For example:
+
+```text
+🔎 Planning research...
+🔎 Running search 1/5
+🔎 Running search 2/5
+🔎 Running search 3/5
+✍️ Writing report...
+📧 Sending report...
+✅ Complete
+```
+
+This is enabled by the combination of:
+
+* Python generators
+* `yield`
+* Gradio callbacks
+
+This pattern is useful for any long-running AI workflow.
+
+---
+
+# 17. Why Streaming Status Matters
+
+Deep research may take significant time because it involves:
+
+* Multiple LLM calls
+* Multiple web searches
+* Parallel processing
+* Report generation
+* Email delivery
+
+A blank screen can make the application appear broken.
+
+Progress updates communicate:
+
+```text
+The system is still working.
+```
+
+This improves perceived responsiveness and user experience.
+
+---
+
+# 18. Hugging Face Spaces
+
+Once the application works locally, the transcript deploys it to **Hugging Face Spaces**.
+
+Hugging Face Spaces provides infrastructure for hosting interactive ML/AI applications, including Gradio apps. Spaces are backed by Git repositories, so pushing changes can trigger a rebuild/restart.
+
+### Deployment architecture
+
+```text
+Local Python Application
+        ↓
+Git / Hugging Face Space
+        ↓
+Hugging Face infrastructure
+        ↓
+Public Web Application
+```
+
+---
+
+# 19. Hugging Face Space Configuration
+
+A Gradio Space generally contains:
+
+```text
+app.py
+requirements.txt
+README.md
+other Python modules
+```
+
+The Space configuration identifies the SDK as Gradio.
+
+Hugging Face documents configuration through the YAML block in `README.md`, including fields such as `sdk`, `python_version`, and `sdk_version`.
+
+---
+
+# 20. Dependencies
+
+If the application requires packages beyond the default environment, they can be specified in:
+
+```text
+requirements.txt
+```
+
+Hugging Face Spaces installs these dependencies when building the environment.
+
+This is particularly important when your application depends on packages such as:
+
+```text
+openai-agents
+gradio
+pydantic
+other libraries
+```
+
+---
+
+# 21. Secrets and Environment Variables
+
+The transcript emphasizes that secrets such as API tokens should **not be hard-coded into the application**.
+
+Instead:
+
+```text
+Local development
+→ .env
+
+
+Cloud deployment
+→ Space Secrets
+```
+
+For example:
+
+```text
+OPENAI_API_KEY
+PUSHOVER_USER
+PUSHOVER_TOKEN
+```
+
+should be stored as secrets.
+
+The transcript demonstrates configuring Pushover credentials as Space secrets.
+
+Hugging Face's deployment documentation similarly recommends storing tokens as Space secrets rather than embedding them in source code.
+
+---
+
+# 22. Hugging Face Deployment Flow
+
+The overall deployment process is:
+
+```text
+1. Build application locally
+          ↓
+2. Test Gradio UI
+          ↓
+3. Create Hugging Face Space
+          ↓
+4. Select Gradio
+          ↓
+5. Upload / push application
+          ↓
+6. Configure dependencies
+          ↓
+7. Add secrets
+          ↓
+8. Restart / rebuild
+          ↓
+9. Open public application
+```
+
+Hugging Face's current Spaces documentation covers creating, configuring, and deploying Gradio Spaces.
+
+---
+
+# 23. Push Notifications
+
+The transcript demonstrates using **Pushover** as an alternative to email after deployment.
+
+The flow becomes:
+
+```text
+Deep Research
+     ↓
+Report
+     ↓
+Pushover
+     ↓
+Phone notification
+```
+
+This is useful because it demonstrates that the research agent isn't restricted to a browser UI.
+
+The same research result can be delivered through different channels.
+
+---
+
+# 24. A More General Architecture
+
+The project can therefore be viewed as four layers:
+
+```text
+┌──────────────────────────────┐
+│          UI Layer            │
+│       Gradio Application     │
+└──────────────┬───────────────┘
+               │
+┌──────────────▼───────────────┐
+│      Orchestration Layer     │
+│       ResearchManager        │
+└──────────────┬───────────────┘
+               │
+┌──────────────▼───────────────┐
+│         Agent Layer          │
+│ Planner / Search / Writer    │
+│          / Email             │
+└──────────────┬───────────────┘
+               │
+┌──────────────▼───────────────┐
+│     External Capabilities    │
+│ Web Search / Email / Push    │
+└──────────────────────────────┘
+```
+
+This separation is a very useful production architecture.
+
+---
+
+# 25. The Clarifying Questions Challenge
+
+The first major extension proposed in the transcript is adding a **clarifying-question stage**.
+
+Instead of:
+
+```text
+Question
+ ↓
+Plan
+ ↓
+Search
+```
+
+the improved flow becomes:
+
+```text
+Question
+ ↓
+Clarifying Questions
+ ↓
+User Answers
+ ↓
+Research Plan
+ ↓
+Search
+ ↓
+Report
+```
+
+This is a powerful improvement because the research agent can better understand the user's actual intent before spending resources on searches.
+
+---
+
+# 26. Clarifications Must Influence the Whole Workflow
+
+A subtle but important point is that clarification should not simply be collected and then ignored.
+
+The answers should influence:
+
+* Search queries
+* Search priorities
+* Report content
+* Final recommendations
+
+For example:
+
+```text
+User:
+"Research AI agent frameworks."
+
+Clarification:
+"Are you interested in enterprise or open-source frameworks?"
+
+User:
+"Open-source."
+
+↓
+Planner
+
+Searches should now emphasize:
+- GitHub activity
+- Licensing
+- Community
+- Open-source adoption
+```
+
+The transcript explicitly recommends weaving the clarifications throughout the research process.
+
+---
+
+# 27. Evaluation / Evals
+
+Another major lesson is the importance of **evaluation**.
+
+A research agent generating a polished report doesn't necessarily mean it is producing the correct answer.
+
+You should evaluate:
+
+```text
+Did it find the right frameworks?
+Did it miss important ones?
+Were the sources relevant?
+Was the ranking defensible?
+Were claims supported?
+```
+
+The transcript recommends creating evaluations that measure whether the system is actually achieving the intended outcome.
+
+### Key principle
+
+> **LLMs are responsible for generating content; you are responsible for determining whether that content meets the goal.**
+
+---
+
+# 28. Iterative Agent Development
+
+The transcript recommends a practical development loop:
+
+```text
+Build
+ ↓
+Run
+ ↓
+Inspect output
+ ↓
+Inspect traces
+ ↓
+Add print/debug information
+ ↓
+Modify prompts
+ ↓
+Run again
+ ↓
+Evaluate
+ ↓
+Repeat
+```
+
+This is essentially **empirical prompt engineering**.
+
+Don't assume your prompt is correct.
+
+Test it.
+
+Measure the result.
+
+Improve it.
+
+---
+
+# 29. The Big Challenge: Code vs LLM Orchestration
+
+The final major exercise is to rewrite the Deep Research Agent using **LLM-based orchestration**.
+
+Current architecture:
+
+```text
+Python
+ ↓
+Planner
+ ↓
+Search
+ ↓
+Writer
+ ↓
+Email
+```
+
+Alternative architecture:
+
+```text
+                Manager Agent
+                     │
+       ┌─────────────┼─────────────┐
+       ▼             ▼             ▼
+    Planner        Search        Writer
+     Agent         Agent         Agent
+       │             │             │
+       └─────────────┼─────────────┘
+                     ▼
+                  Email
+```
+
+The manager agent gets the other agents as tools and decides what to do.
+
+---
+
+# 30. Why LLM Orchestration Could Be Better
+
+The fixed workflow is:
+
+```text
+Plan
+→ Search
+→ Write
+→ Email
+```
+
+But real research isn't always linear.
+
+Suppose the agent discovers something confusing.
+
+It might want to:
+
+```text
+Search
+ ↓
+Discover ambiguity
+ ↓
+Ask user clarification
+ ↓
+Search again
+ ↓
+Discover another issue
+ ↓
+Search again
+ ↓
+Write
+```
+
+A manager agent could potentially decide this dynamically.
+
+That is the primary advantage of LLM orchestration.
+
+---
+
+# 31. The Trade-Off
+
+The transcript gives a very important engineering trade-off:
+
+| Code Orchestration | LLM Orchestration         |
+| ------------------ | ------------------------- |
+| Deterministic      | Autonomous                |
+| Predictable        | Flexible                  |
+| Easier to debug    | Harder to debug           |
+| Fixed workflow     | Dynamic workflow          |
+| More reliable      | Potentially more adaptive |
+| Less autonomous    | More autonomous           |
+
+The goal isn't to declare one universally better.
+
+Instead:
+
+> **Choose the architecture according to the problem.**
+
+---
+
+# 32. How to Decide
+
+### Use code orchestration when:
+
+* Workflow is known
+* Steps are predictable
+* Reliability is critical
+* Compliance matters
+* You need deterministic behavior
+* Debugging simplicity is important
+
+### Use LLM orchestration when:
+
+* Workflow is open-ended
+* The agent needs to decide what to do next
+* Multiple paths may be valid
+* User clarification may be needed dynamically
+* Exploration is valuable
+* Autonomy is a major requirement
+
+---
+
+# 33. Production Architecture
+
+The final production-oriented architecture can look like:
+
+```text
+                    ┌──────────────┐
+                    │   Gradio UI  │
+                    └──────┬───────┘
+                           │
+                           ▼
+                  ┌─────────────────┐
+                  │ Research Manager│
+                  └────────┬────────┘
+                           │
+             ┌─────────────┼─────────────┐
+             │             │             │
+             ▼             ▼             ▼
+         Planner        Search         Writer
+          Agent          Agent          Agent
+             │             │             │
+             │             ▼             │
+             │        Web Search         │
+             │                           │
+             └─────────────┬─────────────┘
+                           ▼
+                      Report Data
+                           │
+                           ▼
+                      Email Agent
+                           │
+                    ┌──────┴──────┐
+                    ▼             ▼
+                  Email        Pushover
+```
+
+Then:
+
+```text
+Local Application
+       ↓
+Hugging Face Spaces
+       ↓
+Internet
+       ↓
+Real Users
+```
+
+---
+
+# 34. Most Important Takeaways
+
+## ⭐ 1. Move from notebooks to modules
+
+A notebook is excellent for experimentation.
+
+Python modules are better for reusable applications.
+
+```text
+Experiment → Stabilize → Modularize
+```
+
+---
+
+## ⭐ 2. Separate agents from orchestration
+
+Agents define capabilities.
+
+The Research Manager defines the workflow.
+
+```text
+Agents = What can be done
+
+Manager = When it gets done
+```
+
+---
+
+## ⭐ 3. Use `asyncio.gather()` for independent work
+
+Parallel searches can reduce latency.
+
+```text
+Independent tasks
+      ↓
+asyncio.gather()
+      ↓
+Parallel execution
+```
+
+---
+
+## ⭐ 4. Use generators for progress updates
+
+`yield` allows the backend to expose intermediate progress.
+
+This works particularly well with Gradio.
+
+---
+
+## ⭐ 5. Keep configuration outside code
+
+Use:
+
+```text
+.env
+```
+
+for local configuration and:
+
+```text
+Hugging Face Space Secrets
+```
+
+for deployed credentials.
+
+---
+
+## ⭐ 6. Build the functional UI first
+
+Start with:
+
+```text
+Simple UI
+```
+
+then add:
+
+```text
+Styling
+CSS
+Dark mode
+Examples
+Better UX
+```
+
+---
+
+## ⭐ 7. Deploy only after local validation
+
+A good workflow is:
+
+```text
+Notebook
+ ↓
+Python modules
+ ↓
+Local tests
+ ↓
+Gradio
+ ↓
+UI refinement
+ ↓
+Deployment
+```
+
+---
+
+## ⭐ 8. Add clarifying questions
+
+This can substantially improve research quality by making the system understand the user's intent before spending resources.
+
+---
+
+## ⭐ 9. Add evaluations
+
+Never judge an agent purely by:
+
+> "The output looks good."
+
+Measure whether the output actually accomplishes the intended goal.
+
+---
+
+## ⭐ 10. Compare orchestration architectures experimentally
+
+Build both:
+
+```text
+Code orchestration
+```
+
+and:
+
+```text
+LLM orchestration
+```
+
+Then measure:
+
+* Accuracy
+* Reliability
+* Latency
+* Cost
+* Research completeness
+* User satisfaction
+
+That comparison will teach you more than simply reading about the two approaches.
+
+---
+
+# 35. Quick Revision Cheat Sheet
+
+| Concept              | Key Idea                                    |
+| -------------------- | ------------------------------------------- |
+| Python module        | Reusable application component              |
+| `.env`               | External configuration                      |
+| Research Manager     | Controls research workflow                  |
+| `runner.run()`       | Executes an agent                           |
+| `asyncio.gather()`   | Parallel execution                          |
+| `yield`              | Intermediate results from a generator       |
+| Generator            | Produces values incrementally               |
+| Gradio               | Python-based web UI                         |
+| Hugging Face Spaces  | Deployment/hosting for AI apps              |
+| Space Secrets        | Secure deployment credentials               |
+| Pushover             | Alternative notification channel            |
+| Structured output    | Typed agent result                          |
+| Planner              | Question → search plan                      |
+| Search Agent         | Search → research information               |
+| Writer Agent         | Research → report                           |
+| Email Agent          | Report → delivery                           |
+| Evals                | Measure whether the agent achieves its goal |
+| Code orchestration   | Predictable workflow                        |
+| LLM orchestration    | Dynamic workflow                            |
+| Clarifying questions | Improve understanding before research       |
+
+---
+
+# 36. Recommended Deep-Dive Resources
+
+## OpenAI Agents SDK
+
+Start here for the overall framework:
+
+[OpenAI Agents SDK](https://openai.github.io/openai-agents-python/)
+
+Then study:
+
+[Agents & structured outputs](https://openai.github.io/openai-agents-python/agents/)
+
+[Agents SDK Quickstart](https://openai.github.io/openai-agents-python/quickstart/)
+
+---
+
+## Gradio
+
+For building the research application's UI:
+
+[Gradio Documentation](https://www.gradio.app/docs/)
+
+Focus especially on:
+
+* Interfaces
+* Blocks
+* Events
+* Streaming/generator functions
+* Custom CSS
+* Deployment
+
+---
+
+## Hugging Face Spaces
+
+For deploying the application:
+
+[Hugging Face Spaces Overview](https://huggingface.co/docs/hub/en/spaces-overview)
+
+[Gradio Spaces Guide](https://huggingface.co/docs/hub/en/spaces-sdks-gradio)
+
+[Spaces Dependencies](https://huggingface.co/docs/hub/en/spaces-dependencies)
+
+[Spaces Configuration Reference](https://huggingface.co/docs/hub/spaces-config-reference)
+
+---
+
+## Hugging Face + Gradio APIs
+
+An interesting next step is using a deployed Gradio Space as an API:
+
+[Spaces as API endpoints](https://huggingface.co/docs/hub/spaces-api-endpoints)
+
+This means your Deep Research application can eventually become:
+
+```text
+Web UI
+   +
+API
+   +
+Agent backend
+```
+
+rather than only a browser-based application.
+
+---
+
+## Pydantic
+
+Since structured outputs are heavily used:
+
+[Pydantic Documentation](https://docs.pydantic.dev/)
+
+Study:
+
+* `BaseModel`
+* Validation
+* Nested models
+* JSON Schema
+* Type adapters
+
+---
+
+# 37. Suggested Hands-On Exercises
+
+### Beginner
+
+1. Convert the four notebook agents into separate `.py` modules.
+2. Create a `ResearchManager`.
+3. Add a Gradio textbox and button.
+4. Display intermediate status using `yield`.
+
+### Intermediate
+
+5. Add 5–10 parallel searches.
+6. Add a configurable number of searches through `.env`.
+7. Add email and Pushover as interchangeable outputs.
+8. Add custom CSS.
+9. Deploy to Hugging Face Spaces.
+
+### Advanced
+
+10. Add a clarifying-question agent.
+11. Make the answers influence all subsequent searches.
+12. Add evaluation criteria for research quality.
+13. Compare different models.
+14. Compare sequential vs parallel search performance.
+15. Rewrite the workflow using agents-as-tools.
+16. Give the manager freedom to ask additional clarification questions.
+17. Allow the manager to perform additional searches when the initial research is insufficient.
+18. Compare **code orchestration vs LLM orchestration quantitatively**.
+
+---
+
+# 38. Final Mental Model
+
+The entire Day 5 lesson can be summarized as:
+
+```text
+                DEEP RESEARCH APPLICATION
+                         │
+                         ▼
+                    Gradio UI
+                         │
+                         ▼
+                 Research Manager
+                         │
+          ┌──────────────┼──────────────┐
+          ▼              ▼              ▼
+       Planner         Search          Writer
+       Agent           Agents          Agent
+          │              │              │
+          └──────────────┼──────────────┘
+                         │
+                         ▼
+                    Final Report
+                         │
+                         ▼
+                    Email / Push
+                         │
+                         ▼
+               Hugging Face Spaces
+                         │
+                         ▼
+                    Live Web App
+```
+
+### The biggest lesson
+
+The transition from **agent experiment → real AI application** requires more than writing prompts.
+
+You need:
+
+```text
+Good agents
++
+Reliable orchestration
++
+Structured data
++
+Async execution
++
+User interface
++
+Configuration
++
+Secrets management
++
+Evaluation
++
+Deployment
+```
+
+The transcript's most important architectural lesson is that **the agent is only one component of the application**. The surrounding software—workflow orchestration, UI, configuration, observability, evaluation, and deployment—is what turns an interesting notebook experiment into a usable product.
+
+I reviewed the uploaded **Week 2, Day 5** content. The main focus is taking the deep-research prototype from the previous day and turning it into a **real Python application with a Gradio UI and Hugging Face Spaces deployment**. 
+
+# Week 2 Day 5 — Deep Research Agent: Python Modules, Gradio UI & Deployment
+
+## 1. Main Goal
+
+The goal of Day 5 is to take the Deep Research Agent built in Jupyter notebooks and turn it into a **deployable AI application**.
+
+The progression is:
+
+```text
+Jupyter Notebook
+      ↓
+Python Modules
+      ↓
+Research Manager
+      ↓
+Gradio UI
+      ↓
+Hugging Face Spaces
+      ↓
+Live Deep Research Application
+```
+
+The project is the classic **agentic AI deep-research use case**. 
+
+---
+
+# 2. The Four-Agent Architecture
+
+The previous day's research system consisted of four agents:
+
+1. **Search Agent**
+2. **Planner Agent**
+3. **Writer Agent**
+4. **Email Agent**
+
+The Day 5 task is to move each of these from notebook cells into reusable Python modules.
+
+```text
+                    User Question
+                         │
+                         ▼
+                  Planner Agent
+                         │
+                  Search Plan
+                         │
+          ┌──────────────┼──────────────┐
+          ▼              ▼              ▼
+       Search          Search         Search
+       Agent           Agent          Agent
+          └──────────────┼──────────────┘
+                         ▼
+                   Writer Agent
+                         │
+                         ▼
+                   Research Report
+                         │
+                         ▼
+                   Email Agent
+```
+
+This modular structure makes the application easier to maintain, test, reuse, and deploy.
+
+The OpenAI Agents SDK similarly treats agents as reusable components defined with instructions, tools, models, and optional structured outputs. ([OpenAI Agents SDK](https://openai.github.io/openai-agents-python/)) ([OpenAI GitHub Pages][1])
+
+---
+
+# 3. Search Agent Module
+
+The Search Agent is responsible for searching the web.
+
+Its configuration includes:
+
+* Instructions
+* Web search tool
+* Model
+* Model settings
+
+The transcript also introduces a useful configuration pattern:
+
+```text
+.env
+  ↓
+DEFAULT_MODEL_NAME
+  ↓
+Search Agent
+```
+
+If a model name is provided through `.env`, the application uses it.
+
+Otherwise, it falls back to a default model.
+
+### Why this is useful
+
+You don't have to modify Python source code every time you want to change the model.
+
+For example:
+
+```text
+Development
+→ cheaper/faster model
+
+Production
+→ more capable model
+```
+
+This is a good example of separating **configuration from application code**.
+
+---
+
+# 4. Planner Agent
+
+The Planner Agent converts a user question into multiple searches.
+
+The transcript continues using structured output with Pydantic models.
+
+Conceptually:
+
+```python
+class WebSearchItem(BaseModel):
+    reason: str
+    query: str
+
+
+class WebSearchPlan(BaseModel):
+    searches: list[WebSearchItem]
+```
+
+The planner then uses:
+
+```text
+output_type = WebSearchPlan
+```
+
+so that the result can be handled programmatically.
+
+The current Agents SDK supports Pydantic models and other Pydantic-compatible types as structured output types. ([OpenAI GitHub Pages][2])
+
+### Key idea
+
+Instead of asking:
+
+> "Give me some searches."
+
+the application receives something structurally like:
+
+```text
+WebSearchPlan
+ ├── Search 1
+ ├── Search 2
+ ├── Search 3
+ ├── Search 4
+ └── Search 5
+```
+
+This makes downstream processing much more reliable.
+
+---
+
+# 5. Writer Agent
+
+The Writer Agent takes the results of the searches and creates the final research report.
+
+It also uses structured output.
+
+Conceptually:
+
+```text
+Search Results
+      ↓
+Writer Agent
+      ↓
+ReportData
+ ├── Summary
+ ├── Detailed Report
+ └── Follow-up Questions
+```
+
+One important lesson from the transcript is that **the notebook phase is where you refine prompts**.
+
+The recommended workflow is:
+
+```text
+Experiment in notebook
+        ↓
+Iterate on instructions
+        ↓
+Evaluate results
+        ↓
+Refine prompts
+        ↓
+Move stable version into Python module
+```
+
+This is a very practical development strategy for agentic applications. 
+
+---
+
+# 6. Email Agent
+
+The fourth agent is the Email Agent.
+
+Its responsibilities are simple:
+
+```text
+Research Report
+      ↓
+Email Agent
+      ↓
+Send Email
+```
+
+The email agent has:
+
+* Instructions
+* Model
+* Email-sending tool
+
+An important improvement in this version is requiring the agent to actually use the tool.
+
+Conceptually:
+
+```text
+Agent
+  ↓
+Must use send_email tool
+  ↓
+Email sent
+```
+
+This prevents the agent from merely describing what it would send instead of actually invoking the tool.
+
+---
+
+# 7. Email vs Push Notifications
+
+The application supports two output mechanisms:
+
+```text
+USE_EMAIL=true
+      ↓
+Email
+
+
+USE_EMAIL=false
+      ↓
+Push notification
+```
+
+This is another example of configuration through `.env`.
+
+The important architectural lesson is:
+
+> Keep the agent logic independent from the delivery mechanism.
+
+The research system should generate the report; another component determines how that report reaches the user.
+
+---
+
+# 8. `researchmanager.py`
+
+After defining the four agents, the next layer is the **Research Manager**.
+
+This module contains the Python functions that actually execute the agents.
+
+The transcript defines functions conceptually equivalent to:
+
+```text
+plan_searches()
+perform_searches()
+search()
+write_report()
+send_email()
+```
+
+Each function is responsible for one step of the workflow.
+
+---
+
+# 9. Separating Planning from Searching
+
+An important design decision is separating:
+
+```text
+Planning
+```
+
+from:
+
+```text
+Executing searches
+```
+
+The workflow becomes:
+
+```text
+User Question
+     ↓
+plan_searches()
+     ↓
+Search Plan
+     ↓
+perform_searches()
+     ↓
+Search Results
+```
+
+This separation is useful because it makes each stage:
+
+* Easier to test
+* Easier to debug
+* Easier to modify
+* Easier to evaluate
+
+---
+
+# 10. Parallel Search Execution
+
+The individual searches can run concurrently.
+
+The transcript uses:
+
+```python
+asyncio.gather(...)
+```
+
+Conceptually:
+
+```text
+Search 1 ─┐
+Search 2 ─┤
+Search 3 ─┼──→ Search Results
+Search 4 ─┤
+Search 5 ─┘
+```
+
+Instead of:
+
+```text
+Search 1
+   ↓
+Search 2
+   ↓
+Search 3
+   ↓
+Search 4
+   ↓
+Search 5
+```
+
+### Why this matters
+
+Parallel execution can significantly reduce total latency when the searches are independent.
+
+This is one of the major advantages of using asynchronous Python for agent workflows.
+
+---
+
+# 11. `ResearchManager`
+
+The transcript wraps the entire workflow inside a class:
+
+```python
+ResearchManager
+```
+
+Its main `run()` method performs:
+
+```text
+1. Plan searches
+2. Perform searches
+3. Write report
+4. Send email
+```
+
+Conceptually:
+
+```python
+async def run(query):
+    plan = await plan_searches(query)
+    results = await perform_searches(plan)
+    report = await write_report(results)
+    await send_email(report)
+```
+
+The major benefit is that the entire workflow is visible in one place.
+
+This makes the orchestration logic much easier to understand.
+
+---
+
+# 12. Python Generators and `yield`
+
+One of the more important Python concepts introduced is `yield`.
+
+Instead of the `run()` function returning only once at the end, it can produce intermediate results:
+
+```text
+run()
+ ↓
+yield "Planning searches..."
+ ↓
+yield "Searching..."
+ ↓
+yield "Writing report..."
+ ↓
+yield "Sending email..."
+ ↓
+yield "Complete"
+```
+
+This turns the function into a **generator**.
+
+### Why use it here?
+
+Because Gradio can use those intermediate values to update the UI while the research process is still running.
+
+The architecture becomes:
+
+```text
+Research Manager
+      ↓
+yield status
+      ↓
+Gradio UI
+      ↓
+Update screen
+```
+
+This makes a long-running agent workflow feel interactive rather than frozen.
+
+---
+
+# 13. Gradio
+
+The next major step is adding a user interface using **Gradio**.
+
+The basic UI contains:
+
+* A text box for the research question
+* A button to start research
+* A field to display the result/status
+
+The application connects:
+
+```text
+Gradio Button
+      ↓
+Callback Function
+      ↓
+ResearchManager.run()
+      ↓
+yield status updates
+      ↓
+Gradio displays updates
+```
+
+Gradio is designed for quickly creating web interfaces around Python applications and models.
+
+[Gradio Documentation](https://www.gradio.app/docs/) ([Hugging Face][3])
+
+---
+
+# 14. Simple UI First
+
+The transcript initially creates a very simple `simple.py`.
+
+This is a valuable development principle:
+
+> **Get the functionality working before worrying about visual polish.**
+
+The first version focuses on:
+
+```text
+Does the application work?
+```
+
+rather than:
+
+```text
+Does the application look beautiful?
+```
+
+Only after the underlying workflow works does the transcript improve the UI.
+
+---
+
+# 15. UI Refinement
+
+The transcript then uses a coding agent to improve the UI.
+
+The coding agent:
+
+* Refactors the interface
+* Adds styling
+* Adds CSS
+* Adds JavaScript
+* Adds better layout
+* Adds colors
+* Adds example questions
+* Improves presentation
+* Adds light/dark mode
+
+The important lesson isn't the specific CSS.
+
+It is this:
+
+> Coding agents can be used as development assistants to transform a functional prototype into a polished interface.
+
+The architecture remains essentially the same:
+
+```text
+ResearchManager
+      ↓
+Gradio
+      ↓
+Styled UI
+```
+
+Only the presentation layer changes.
+
+---
+
+# 16. Live Progress in the UI
+
+One particularly useful feature is showing progress while the research is happening.
+
+For example:
+
+```text
+🔎 Planning research...
+🔎 Running search 1/5
+🔎 Running search 2/5
+🔎 Running search 3/5
+✍️ Writing report...
+📧 Sending report...
+✅ Complete
+```
+
+This is enabled by the combination of:
+
+* Python generators
+* `yield`
+* Gradio callbacks
+
+This pattern is useful for any long-running AI workflow.
+
+---
+
+# 17. Why Streaming Status Matters
+
+Deep research may take significant time because it involves:
+
+* Multiple LLM calls
+* Multiple web searches
+* Parallel processing
+* Report generation
+* Email delivery
+
+A blank screen can make the application appear broken.
+
+Progress updates communicate:
+
+```text
+The system is still working.
+```
+
+This improves perceived responsiveness and user experience.
+
+---
+
+# 18. Hugging Face Spaces
+
+Once the application works locally, the transcript deploys it to **Hugging Face Spaces**.
+
+Hugging Face Spaces provides infrastructure for hosting interactive ML/AI applications, including Gradio apps. Spaces are backed by Git repositories, so pushing changes can trigger a rebuild/restart. ([Hugging Face][3])
+
+### Deployment architecture
+
+```text
+Local Python Application
+        ↓
+Git / Hugging Face Space
+        ↓
+Hugging Face infrastructure
+        ↓
+Public Web Application
+```
+
+---
+
+# 19. Hugging Face Space Configuration
+
+A Gradio Space generally contains:
+
+```text
+app.py
+requirements.txt
+README.md
+other Python modules
+```
+
+The Space configuration identifies the SDK as Gradio.
+
+Hugging Face documents configuration through the YAML block in `README.md`, including fields such as `sdk`, `python_version`, and `sdk_version`. ([Hugging Face][4])
+
+---
+
+# 20. Dependencies
+
+If the application requires packages beyond the default environment, they can be specified in:
+
+```text
+requirements.txt
+```
+
+Hugging Face Spaces installs these dependencies when building the environment. ([Hugging Face][5])
+
+This is particularly important when your application depends on packages such as:
+
+```text
+openai-agents
+gradio
+pydantic
+other libraries
+```
+
+---
+
+# 21. Secrets and Environment Variables
+
+The transcript emphasizes that secrets such as API tokens should **not be hard-coded into the application**.
+
+Instead:
+
+```text
+Local development
+→ .env
+
+
+Cloud deployment
+→ Space Secrets
+```
+
+For example:
+
+```text
+OPENAI_API_KEY
+PUSHOVER_USER
+PUSHOVER_TOKEN
+```
+
+should be stored as secrets.
+
+The transcript demonstrates configuring Pushover credentials as Space secrets. 
+
+Hugging Face's deployment documentation similarly recommends storing tokens as Space secrets rather than embedding them in source code. ([Hugging Face][6])
+
+---
+
+# 22. Hugging Face Deployment Flow
+
+The overall deployment process is:
+
+```text
+1. Build application locally
+          ↓
+2. Test Gradio UI
+          ↓
+3. Create Hugging Face Space
+          ↓
+4. Select Gradio
+          ↓
+5. Upload / push application
+          ↓
+6. Configure dependencies
+          ↓
+7. Add secrets
+          ↓
+8. Restart / rebuild
+          ↓
+9. Open public application
+```
+
+Hugging Face's current Spaces documentation covers creating, configuring, and deploying Gradio Spaces. ([Hugging Face][7])
+
+---
+
+# 23. Push Notifications
+
+The transcript demonstrates using **Pushover** as an alternative to email after deployment.
+
+The flow becomes:
+
+```text
+Deep Research
+     ↓
+Report
+     ↓
+Pushover
+     ↓
+Phone notification
+```
+
+This is useful because it demonstrates that the research agent isn't restricted to a browser UI.
+
+The same research result can be delivered through different channels.
+
+---
+
+# 24. A More General Architecture
+
+The project can therefore be viewed as four layers:
+
+```text
+┌──────────────────────────────┐
+│          UI Layer            │
+│       Gradio Application     │
+└──────────────┬───────────────┘
+               │
+┌──────────────▼───────────────┐
+│      Orchestration Layer     │
+│       ResearchManager        │
+└──────────────┬───────────────┘
+               │
+┌──────────────▼───────────────┐
+│         Agent Layer          │
+│ Planner / Search / Writer    │
+│          / Email             │
+└──────────────┬───────────────┘
+               │
+┌──────────────▼───────────────┐
+│     External Capabilities    │
+│ Web Search / Email / Push    │
+└──────────────────────────────┘
+```
+
+This separation is a very useful production architecture.
+
+---
+
+# 25. The Clarifying Questions Challenge
+
+The first major extension proposed in the transcript is adding a **clarifying-question stage**.
+
+Instead of:
+
+```text
+Question
+ ↓
+Plan
+ ↓
+Search
+```
+
+the improved flow becomes:
+
+```text
+Question
+ ↓
+Clarifying Questions
+ ↓
+User Answers
+ ↓
+Research Plan
+ ↓
+Search
+ ↓
+Report
+```
+
+This is a powerful improvement because the research agent can better understand the user's actual intent before spending resources on searches.
+
+---
+
+# 26. Clarifications Must Influence the Whole Workflow
+
+A subtle but important point is that clarification should not simply be collected and then ignored.
+
+The answers should influence:
+
+* Search queries
+* Search priorities
+* Report content
+* Final recommendations
+
+For example:
+
+```text
+User:
+"Research AI agent frameworks."
+
+Clarification:
+"Are you interested in enterprise or open-source frameworks?"
+
+User:
+"Open-source."
+
+↓
+Planner
+
+Searches should now emphasize:
+- GitHub activity
+- Licensing
+- Community
+- Open-source adoption
+```
+
+The transcript explicitly recommends weaving the clarifications throughout the research process. 
+
+---
+
+# 27. Evaluation / Evals
+
+Another major lesson is the importance of **evaluation**.
+
+A research agent generating a polished report doesn't necessarily mean it is producing the correct answer.
+
+You should evaluate:
+
+```text
+Did it find the right frameworks?
+Did it miss important ones?
+Were the sources relevant?
+Was the ranking defensible?
+Were claims supported?
+```
+
+The transcript recommends creating evaluations that measure whether the system is actually achieving the intended outcome. 
+
+### Key principle
+
+> **LLMs are responsible for generating content; you are responsible for determining whether that content meets the goal.**
+
+---
+
+# 28. Iterative Agent Development
+
+The transcript recommends a practical development loop:
+
+```text
+Build
+ ↓
+Run
+ ↓
+Inspect output
+ ↓
+Inspect traces
+ ↓
+Add print/debug information
+ ↓
+Modify prompts
+ ↓
+Run again
+ ↓
+Evaluate
+ ↓
+Repeat
+```
+
+This is essentially **empirical prompt engineering**.
+
+Don't assume your prompt is correct.
+
+Test it.
+
+Measure the result.
+
+Improve it.
+
+---
+
+# 29. The Big Challenge: Code vs LLM Orchestration
+
+The final major exercise is to rewrite the Deep Research Agent using **LLM-based orchestration**.
+
+Current architecture:
+
+```text
+Python
+ ↓
+Planner
+ ↓
+Search
+ ↓
+Writer
+ ↓
+Email
+```
+
+Alternative architecture:
+
+```text
+                Manager Agent
+                     │
+       ┌─────────────┼─────────────┐
+       ▼             ▼             ▼
+    Planner        Search        Writer
+     Agent         Agent         Agent
+       │             │             │
+       └─────────────┼─────────────┘
+                     ▼
+                  Email
+```
+
+The manager agent gets the other agents as tools and decides what to do.
+
+---
+
+# 30. Why LLM Orchestration Could Be Better
+
+The fixed workflow is:
+
+```text
+Plan
+→ Search
+→ Write
+→ Email
+```
+
+But real research isn't always linear.
+
+Suppose the agent discovers something confusing.
+
+It might want to:
+
+```text
+Search
+ ↓
+Discover ambiguity
+ ↓
+Ask user clarification
+ ↓
+Search again
+ ↓
+Discover another issue
+ ↓
+Search again
+ ↓
+Write
+```
+
+A manager agent could potentially decide this dynamically.
+
+That is the primary advantage of LLM orchestration.
+
+---
+
+# 31. The Trade-Off
+
+The transcript gives a very important engineering trade-off:
+
+| Code Orchestration | LLM Orchestration         |
+| ------------------ | ------------------------- |
+| Deterministic      | Autonomous                |
+| Predictable        | Flexible                  |
+| Easier to debug    | Harder to debug           |
+| Fixed workflow     | Dynamic workflow          |
+| More reliable      | Potentially more adaptive |
+| Less autonomous    | More autonomous           |
+
+The goal isn't to declare one universally better.
+
+Instead:
+
+> **Choose the architecture according to the problem.**
+
+---
+
+# 32. How to Decide
+
+### Use code orchestration when:
+
+* Workflow is known
+* Steps are predictable
+* Reliability is critical
+* Compliance matters
+* You need deterministic behavior
+* Debugging simplicity is important
+
+### Use LLM orchestration when:
+
+* Workflow is open-ended
+* The agent needs to decide what to do next
+* Multiple paths may be valid
+* User clarification may be needed dynamically
+* Exploration is valuable
+* Autonomy is a major requirement
+
+---
+
+# 33. Production Architecture
+
+The final production-oriented architecture can look like:
+
+```text
+                    ┌──────────────┐
+                    │   Gradio UI  │
+                    └──────┬───────┘
+                           │
+                           ▼
+                  ┌─────────────────┐
+                  │ Research Manager│
+                  └────────┬────────┘
+                           │
+             ┌─────────────┼─────────────┐
+             │             │             │
+             ▼             ▼             ▼
+         Planner        Search         Writer
+          Agent          Agent          Agent
+             │             │             │
+             │             ▼             │
+             │        Web Search         │
+             │                           │
+             └─────────────┬─────────────┘
+                           ▼
+                      Report Data
+                           │
+                           ▼
+                      Email Agent
+                           │
+                    ┌──────┴──────┐
+                    ▼             ▼
+                  Email        Pushover
+```
+
+Then:
+
+```text
+Local Application
+       ↓
+Hugging Face Spaces
+       ↓
+Internet
+       ↓
+Real Users
+```
+
+---
+
+# 34. Most Important Takeaways
+
+## ⭐ 1. Move from notebooks to modules
+
+A notebook is excellent for experimentation.
+
+Python modules are better for reusable applications.
+
+```text
+Experiment → Stabilize → Modularize
+```
+
+---
+
+## ⭐ 2. Separate agents from orchestration
+
+Agents define capabilities.
+
+The Research Manager defines the workflow.
+
+```text
+Agents = What can be done
+
+Manager = When it gets done
+```
+
+---
+
+## ⭐ 3. Use `asyncio.gather()` for independent work
+
+Parallel searches can reduce latency.
+
+```text
+Independent tasks
+      ↓
+asyncio.gather()
+      ↓
+Parallel execution
+```
+
+---
+
+## ⭐ 4. Use generators for progress updates
+
+`yield` allows the backend to expose intermediate progress.
+
+This works particularly well with Gradio.
+
+---
+
+## ⭐ 5. Keep configuration outside code
+
+Use:
+
+```text
+.env
+```
+
+for local configuration and:
+
+```text
+Hugging Face Space Secrets
+```
+
+for deployed credentials.
+
+---
+
+## ⭐ 6. Build the functional UI first
+
+Start with:
+
+```text
+Simple UI
+```
+
+then add:
+
+```text
+Styling
+CSS
+Dark mode
+Examples
+Better UX
+```
+
+---
+
+## ⭐ 7. Deploy only after local validation
+
+A good workflow is:
+
+```text
+Notebook
+ ↓
+Python modules
+ ↓
+Local tests
+ ↓
+Gradio
+ ↓
+UI refinement
+ ↓
+Deployment
+```
+
+---
+
+## ⭐ 8. Add clarifying questions
+
+This can substantially improve research quality by making the system understand the user's intent before spending resources.
+
+---
+
+## ⭐ 9. Add evaluations
+
+Never judge an agent purely by:
+
+> "The output looks good."
+
+Measure whether the output actually accomplishes the intended goal.
+
+---
+
+## ⭐ 10. Compare orchestration architectures experimentally
+
+Build both:
+
+```text
+Code orchestration
+```
+
+and:
+
+```text
+LLM orchestration
+```
+
+Then measure:
+
+* Accuracy
+* Reliability
+* Latency
+* Cost
+* Research completeness
+* User satisfaction
+
+That comparison will teach you more than simply reading about the two approaches.
+
+---
+
+# 35. Quick Revision Cheat Sheet
+
+| Concept              | Key Idea                                    |
+| -------------------- | ------------------------------------------- |
+| Python module        | Reusable application component              |
+| `.env`               | External configuration                      |
+| Research Manager     | Controls research workflow                  |
+| `runner.run()`       | Executes an agent                           |
+| `asyncio.gather()`   | Parallel execution                          |
+| `yield`              | Intermediate results from a generator       |
+| Generator            | Produces values incrementally               |
+| Gradio               | Python-based web UI                         |
+| Hugging Face Spaces  | Deployment/hosting for AI apps              |
+| Space Secrets        | Secure deployment credentials               |
+| Pushover             | Alternative notification channel            |
+| Structured output    | Typed agent result                          |
+| Planner              | Question → search plan                      |
+| Search Agent         | Search → research information               |
+| Writer Agent         | Research → report                           |
+| Email Agent          | Report → delivery                           |
+| Evals                | Measure whether the agent achieves its goal |
+| Code orchestration   | Predictable workflow                        |
+| LLM orchestration    | Dynamic workflow                            |
+| Clarifying questions | Improve understanding before research       |
+
+---
+
+# 36. Recommended Deep-Dive Resources
+
+## OpenAI Agents SDK
+
+Start here for the overall framework:
+
+[OpenAI Agents SDK](https://openai.github.io/openai-agents-python/) ([OpenAI GitHub Pages][1])
+
+Then study:
+
+[Agents & structured outputs](https://openai.github.io/openai-agents-python/agents/) ([OpenAI GitHub Pages][2])
+
+[Agents SDK Quickstart](https://openai.github.io/openai-agents-python/quickstart/) ([OpenAI GitHub Pages][8])
+
+---
+
+## Gradio
+
+For building the research application's UI:
+
+[Gradio Documentation](https://www.gradio.app/docs/) ([Hugging Face][3])
+
+Focus especially on:
+
+* Interfaces
+* Blocks
+* Events
+* Streaming/generator functions
+* Custom CSS
+* Deployment
+
+---
+
+## Hugging Face Spaces
+
+For deploying the application:
+
+[Hugging Face Spaces Overview](https://huggingface.co/docs/hub/en/spaces-overview) ([Hugging Face][7])
+
+[Gradio Spaces Guide](https://huggingface.co/docs/hub/en/spaces-sdks-gradio) ([Hugging Face][3])
+
+[Spaces Dependencies](https://huggingface.co/docs/hub/en/spaces-dependencies) ([Hugging Face][5])
+
+[Spaces Configuration Reference](https://huggingface.co/docs/hub/spaces-config-reference) ([Hugging Face][4])
+
+---
+
+## Hugging Face + Gradio APIs
+
+An interesting next step is using a deployed Gradio Space as an API:
+
+[Spaces as API endpoints](https://huggingface.co/docs/hub/spaces-api-endpoints) ([Hugging Face][9])
+
+This means your Deep Research application can eventually become:
+
+```text
+Web UI
+   +
+API
+   +
+Agent backend
+```
+
+rather than only a browser-based application.
+
+---
+
+## Pydantic
+
+Since structured outputs are heavily used:
+
+[Pydantic Documentation](https://docs.pydantic.dev/)
+
+Study:
+
+* `BaseModel`
+* Validation
+* Nested models
+* JSON Schema
+* Type adapters
+
+---
+
+# 37. Suggested Hands-On Exercises
+
+### Beginner
+
+1. Convert the four notebook agents into separate `.py` modules.
+2. Create a `ResearchManager`.
+3. Add a Gradio textbox and button.
+4. Display intermediate status using `yield`.
+
+### Intermediate
+
+5. Add 5–10 parallel searches.
+6. Add a configurable number of searches through `.env`.
+7. Add email and Pushover as interchangeable outputs.
+8. Add custom CSS.
+9. Deploy to Hugging Face Spaces.
+
+### Advanced
+
+10. Add a clarifying-question agent.
+11. Make the answers influence all subsequent searches.
+12. Add evaluation criteria for research quality.
+13. Compare different models.
+14. Compare sequential vs parallel search performance.
+15. Rewrite the workflow using agents-as-tools.
+16. Give the manager freedom to ask additional clarification questions.
+17. Allow the manager to perform additional searches when the initial research is insufficient.
+18. Compare **code orchestration vs LLM orchestration quantitatively**.
+
+---
+
+# 38. Final Mental Model
+
+The entire Day 5 lesson can be summarized as:
+
+```text
+                DEEP RESEARCH APPLICATION
+                         │
+                         ▼
+                    Gradio UI
+                         │
+                         ▼
+                 Research Manager
+                         │
+          ┌──────────────┼──────────────┐
+          ▼              ▼              ▼
+       Planner         Search          Writer
+       Agent           Agents          Agent
+          │              │              │
+          └──────────────┼──────────────┘
+                         │
+                         ▼
+                    Final Report
+                         │
+                         ▼
+                    Email / Push
+                         │
+                         ▼
+               Hugging Face Spaces
+                         │
+                         ▼
+                    Live Web App
+```
+
+### The biggest lesson
+
+The transition from **agent experiment → real AI application** requires more than writing prompts.
+
+You need:
+
+```text
+Good agents
++
+Reliable orchestration
++
+Structured data
++
+Async execution
++
+User interface
++
+Configuration
++
+Secrets management
++
+Evaluation
++
+Deployment
+```
+
+The transcript's most important architectural lesson is that **the agent is only one component of the application**. The surrounding software—workflow orchestration, UI, configuration, observability, evaluation, and deployment—is what turns an interesting notebook experiment into a usable product. 
+
+### References
+
+* [OpenAI Agents SDK](https://openai.github.io/openai-agents-python/) — agents, tools, orchestration, tracing, sessions, and production workflows. ([OpenAI GitHub Pages][1])
+* [OpenAI Agents — Structured Outputs](https://openai.github.io/openai-agents-python/agents/) — `output_type`, Pydantic models, and typed agent results. ([OpenAI GitHub Pages][2])
+* [OpenAI Agents SDK Quickstart](https://openai.github.io/openai-agents-python/quickstart/) — project setup and first agent. ([OpenAI GitHub Pages][8])
+* [Gradio Documentation](https://www.gradio.app/docs/) — building Python-based interfaces.
+* [Hugging Face Spaces](https://huggingface.co/docs/hub/en/spaces-overview) — deployment and hosting. ([Hugging Face][7])
+* [Gradio Spaces](https://huggingface.co/docs/hub/en/spaces-sdks-gradio) — deploying Gradio applications. ([Hugging Face][3])
+* [Hugging Face Spaces Dependencies](https://huggingface.co/docs/hub/en/spaces-dependencies) — `requirements.txt` and environment dependencies. ([Hugging Face][5])
+* [Hugging Face Spaces Configuration](https://huggingface.co/docs/hub/spaces-config-reference) — Space metadata and runtime configuration. ([Hugging Face][4])
+* [Spaces as API Endpoints](https://huggingface.co/docs/hub/spaces-api-endpoints) — turning a deployed Gradio Space into an API. ([Hugging Face][9])
+* [Pydantic](https://docs.pydantic.dev/) — Python data validation and structured models.
+
+
+
+The **best next step** after this lesson is to actually implement the project yourself: first get the four-agent version working locally, then add the Gradio UI, deploy it, and finally attempt the harder **LLM-orchestrated version** and compare the two architectures.
+
+[1]: https://openai.github.io/openai-agents-python/?utm_source=chatgpt.com "OpenAI Agents SDK"
+[2]: https://openai.github.io/openai-agents-python/agents/?utm_source=chatgpt.com "Agents - OpenAI Agents SDK"
+[3]: https://huggingface.co/docs/hub/en/spaces-sdks-gradio?utm_source=chatgpt.com "Gradio Spaces · Hugging Face"
+[4]: https://huggingface.co/docs/hub/spaces-config-reference?utm_source=chatgpt.com "Spaces Configuration Reference · Hugging Face"
+[5]: https://huggingface.co/docs/hub/en/spaces-dependencies?utm_source=chatgpt.com "Handling Spaces Dependencies in Gradio Spaces · Hugging Face"
+[6]: https://huggingface.co/docs/inference-providers/guides/building-first-app?utm_source=chatgpt.com "Building Your First AI App with Inference Providers · Hugging Face"
+[7]: https://huggingface.co/docs/hub/en/spaces-overview?utm_source=chatgpt.com "Spaces Overview · Hugging Face"
+[8]: https://openai.github.io/openai-agents-python/quickstart/?utm_source=chatgpt.com "Quickstart - OpenAI Agents SDK"
+[9]: https://huggingface.co/docs/hub/spaces-api-endpoints?utm_source=chatgpt.com "Spaces as API endpoints · Hugging Face"
