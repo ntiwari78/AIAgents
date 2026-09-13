@@ -1415,3 +1415,1252 @@ It is:
 * [OpenAI Agents SDK — Tracing](https://openai.github.io/openai-agents-python/tracing/)
 * [SendGrid API Documentation](https://www.twilio.com/docs/sendgrid/api-reference)
 * [Telegram Bot API](https://core.telegram.org/bots/api)
+
+---
+---
+
+# OpenAI Agents SDK — Key Points & Deep Dive
+
+## 1. Big Picture
+
+The central theme is moving from simple LLM calls toward **reliable agentic workflows**.
+
+The transcript emphasizes two broad ways to orchestrate agents:
+
+1. **Orchestration with code**
+
+   * Explicitly control the sequence of `runner.run()` calls.
+   * More predictable, deterministic, understandable, and resilient.
+   * Particularly suitable when the workflow is already known.
+
+2. **Orchestration with LLMs**
+
+   * Give an agent tools representing other agents.
+   * Let the LLM decide which agents/tools to invoke and in what order.
+   * More autonomous and flexible, but less predictable.
+
+The OpenAI Agents SDK officially supports agents, tools, handoffs, guardrails, structured outputs, MCP integration, tracing, and sandbox agents.
+
+### Practical rule
+
+> **If you know the workflow, orchestrate with code. If you need the system to decide the workflow dynamically, consider LLM-based orchestration.**
+
+---
+
+# 2. Using Models Other Than OpenAI
+
+One important lesson is that an agent framework does not necessarily have to be tied to a single model provider.
+
+The transcript demonstrates using:
+
+* Google Gemini
+* OpenRouter models
+* Groq-hosted models
+* OpenAI models
+
+The basic pattern is:
+
+```text
+Provider's OpenAI-compatible endpoint
+        ↓
+Python client
+        ↓
+Model object
+        ↓
+Agent
+```
+
+Instead of passing a model name as a simple string, you can construct a model object using the appropriate client and provider endpoint.
+
+The transcript demonstrates this by creating multiple sales agents with **identical instructions but different underlying models**.
+
+### Why this matters
+
+It allows you to experiment with:
+
+* Cost
+* Latency
+* Reasoning capability
+* Model quality
+* Provider availability
+* Open-source models
+
+without completely redesigning your agent architecture.
+
+---
+
+# 3. Agents as Tools
+
+A particularly useful pattern is:
+
+```text
+Manager Agent
+     |
+     +---- Sales Agent A
+     |
+     +---- Sales Agent B
+     |
+     +---- Sales Agent C
+     |
+     +---- Email Tool
+```
+
+The specialist agents can be converted into tools.
+
+The manager can then ask several specialists to perform subtasks and use their results.
+
+The transcript demonstrates this pattern with three different models generating sales emails and a manager selecting the best result.
+
+The official SDK documentation describes `Agent.as_tool()` as a way to expose one agent as a callable tool while keeping the manager in control of the workflow.
+
+### Mental model
+
+**Agents-as-tools:**
+
+```text
+Manager
+   ↓
+Specialist
+   ↓
+Result
+   ↓
+Manager continues
+```
+
+This is useful when the manager needs the specialist's result before deciding what to do next.
+
+---
+
+# 4. Handoffs
+
+A handoff is different.
+
+With a handoff:
+
+```text
+Agent A
+   ↓
+Agent B takes control
+```
+
+The original agent does not simply receive a result from the specialist.
+
+The specialist becomes the active agent.
+
+The transcript compares:
+
+| Pattern         | Control                 |
+| --------------- | ----------------------- |
+| Agents as tools | Manager retains control |
+| Handoff         | Control is transferred  |
+
+The transcript is skeptical about handoffs because of perceived framework coupling and reliability issues. That is the instructor's opinion; the current OpenAI SDK documentation treats handoffs as a supported orchestration primitive.
+
+### Key distinction
+
+```text
+Agents as tools:
+
+A → B → A
+
+
+Handoff:
+
+A → B
+```
+
+---
+
+# 5. Structured Outputs
+
+This is one of the most important concepts in the transcript.
+
+Normally an LLM produces:
+
+```text
+plain natural language
+```
+
+With structured output, you can ask it to produce data conforming to a defined schema.
+
+For example:
+
+```python
+class EmailReview(BaseModel):
+    is_professional: bool
+    number_of_sentences: int
+    contains_placeholders: bool
+```
+
+Instead of receiving:
+
+```text
+"This email is not professional..."
+```
+
+your application receives something conceptually like:
+
+```python
+EmailReview(
+    is_professional=False,
+    number_of_sentences=3,
+    contains_placeholders=True
+)
+```
+
+The transcript explains that the framework uses JSON/schema representation and converts the resulting structured data into a Python object such as a Pydantic model.
+
+The current Agents SDK supports `output_type` for structured output and can use Python types such as Pydantic models.
+
+---
+
+# 6. Why Structured Outputs Are Powerful
+
+Structured output creates a bridge between:
+
+```text
+LLM reasoning
+        ↓
+structured data
+        ↓
+normal Python code
+        ↓
+business logic
+```
+
+For example:
+
+```python
+if not review.is_professional:
+    reject_email()
+```
+
+This is much more useful than asking the LLM to return a sentence such as:
+
+> "I don't think this email is appropriate."
+
+The application can directly make a deterministic decision.
+
+### Major benefit
+
+**LLMs generate judgments; code executes consequences.**
+
+That separation is extremely important for reliable agentic systems.
+
+---
+
+# 7. Pydantic
+
+The transcript uses **Pydantic** to define the structured objects.
+
+Pydantic provides a convenient way to define Python data models and generate/validate JSON-compatible schemas.
+
+For example:
+
+```python
+class WebSearchItem(BaseModel):
+    reason: str
+    query: str
+```
+
+Then:
+
+```python
+class WebSearchPlan(BaseModel):
+    searches: list[WebSearchItem]
+```
+
+This creates a hierarchy such as:
+
+```text
+WebSearchPlan
+ ├── WebSearchItem
+ │    ├── reason
+ │    └── query
+ ├── WebSearchItem
+ │    ├── reason
+ │    └── query
+ └── ...
+```
+
+The transcript specifically recommends putting the **reason before the query**, because the generated fields appear in that order and the rationale can influence the quality of the subsequent query.
+
+---
+
+# 8. Structured Outputs + Constrained Decoding
+
+The transcript goes one level deeper into why structured output can be reliable.
+
+The simplified idea is:
+
+```text
+LLM generates probability distribution
+              ↓
+Invalid tokens are constrained
+              ↓
+Only schema-compatible output is allowed
+              ↓
+Valid structured data
+```
+
+This is related to **constrained decoding**.
+
+The important conceptual takeaway is:
+
+> Structured output is not simply "please output valid JSON."
+
+The system can impose a formal output structure so that the generated result conforms to the required schema.
+
+---
+
+# 9. Guardrails
+
+Guardrails are controls that prevent an agent from producing or accepting undesirable results.
+
+Typical examples:
+
+* Reject inappropriate user input.
+* Prevent unsafe tool calls.
+* Validate generated content.
+* Stop an email from being sent if it fails quality checks.
+* Prevent invalid data from entering a workflow.
+
+The transcript demonstrates an email checker that verifies:
+
+```text
+is_professional
+contains_placeholders
+```
+
+If the email fails the checks, execution is stopped.
+
+The current SDK documents three main guardrail categories:
+
+1. **Input guardrails**
+2. **Output guardrails**
+3. **Tool guardrails**
+
+---
+
+# 10. Guardrail Tripwires
+
+A guardrail can trigger a **tripwire**.
+
+Conceptually:
+
+```text
+Agent generates output
+        ↓
+Guardrail checks output
+        ↓
+Problem?
+   ↙       ↘
+ Yes        No
+ ↓           ↓
+Tripwire    Continue
+ ↓
+Stop
+```
+
+The transcript demonstrates an intentionally bad "cowboy" sales email being rejected by the guardrail.
+
+The SDK raises an exception when the tripwire is triggered.
+
+---
+
+# 11. Input vs Output vs Tool Guardrails
+
+| Guardrail | Purpose                              |
+| --------- | ------------------------------------ |
+| Input     | Validate incoming user input         |
+| Output    | Validate final agent output          |
+| Tool      | Validate function-tool calls/results |
+
+An important implementation detail is that agent-level input/output guardrails have workflow boundaries.
+
+The current SDK documentation confirms:
+
+* Input guardrails run on the first agent.
+* Output guardrails run on the final agent.
+* Tool guardrails can run around individual function-tool calls.
+
+---
+
+# 12. Simple Code-Based Guardrails
+
+The instructor's preferred approach is worth understanding separately from the SDK feature itself.
+
+Instead of relying entirely on framework-specific guardrail abstractions:
+
+```text
+Agent
+ ↓
+Guardrail
+ ↓
+Another framework mechanism
+```
+
+you can explicitly write:
+
+```text
+Agent
+ ↓
+checker agent
+ ↓
+Python validation
+ ↓
+if valid:
+    continue
+else:
+    stop
+```
+
+The transcript argues that this approach can be:
+
+* Easier to understand
+* Easier to debug
+* More portable
+* Less coupled to one framework
+
+This is an architectural preference expressed by the instructor, rather than a statement that the SDK guardrail system is incorrect.
+
+---
+
+# 13. Tracing and Observability
+
+**Tracing is essential when building agent systems.**
+
+Instead of guessing what an agent did, inspect the actual execution trace.
+
+You can see:
+
+```text
+Agent
+ ├── LLM call
+ ├── Tool call
+ ├── Specialist agent
+ ├── Handoff
+ ├── Guardrail
+ └── Final output
+```
+
+The transcript repeatedly uses traces to determine:
+
+* Which model ran
+* Which agents ran
+* Whether agents ran in parallel
+* Which tool was selected
+* Which email was generated
+* Why a guardrail triggered
+* Which model produced the winning output
+
+The Agents SDK provides built-in tracing for LLM generations, tools, handoffs, guardrails, and other workflow events.
+
+### Important mindset
+
+Don't ask:
+
+> "Why did the agent decide that?"
+
+Instead inspect:
+
+> **What prompt did it receive? What tool did it call? What output did it generate? What happened next?**
+
+That is a much better debugging methodology.
+
+---
+
+# 14. Sandbox Agents
+
+The transcript introduces **SandboxAgent** as an optional newer capability.
+
+The idea is to give an agent an isolated execution environment.
+
+Instead of allowing an agent to freely modify your real filesystem:
+
+```text
+Your computer
+     ↓
+Sandbox
+     ↓
+Agent works here
+```
+
+The sandbox can contain:
+
+* Files
+* Directories
+* Shell access
+* Code
+* Other workspace resources
+
+The transcript demonstrates an agent reviewing a Python file, discovering a bug, and writing the corrected version into an output directory.
+
+The current SDK documentation describes a sandbox as an isolated workspace with concepts such as:
+
+* `Manifest`
+* Capabilities
+* Sandbox session
+* `SandboxRunConfig`
+
+---
+
+# 15. Why Sandboxing Matters
+
+Agents increasingly need to:
+
+* Read files
+* Edit files
+* Run programs
+* Execute shell commands
+* Analyze repositories
+* Modify code
+* Test their changes
+
+Giving an autonomous agent direct access to your real machine is risky.
+
+A sandbox provides an execution boundary.
+
+### Mental model
+
+```text
+Agent
+  ↓
+Sandbox
+  ├── Read files
+  ├── Edit files
+  ├── Run commands
+  └── Test code
+```
+
+The transcript's example illustrates the value by allowing the agent to repair a bug without modifying the original source directly.
+
+---
+
+# 16. The Sandbox Bug Example
+
+The example contains a classic Python mutable-object bug.
+
+An empty list was reused for multiple dictionary keys, meaning several customer IDs effectively referenced the same list.
+
+The result was that orders for different customers became mixed together.
+
+The agent identified the problem and produced a corrected implementation using `setdefault`.
+
+### Lesson
+
+Sandbox agents are not merely chatbots.
+
+They can potentially operate as:
+
+```text
+Inspect
+ → Diagnose
+ → Modify
+ → Test
+ → Produce artifact
+```
+
+This is an important step toward autonomous coding agents.
+
+---
+
+# 17. Model Context Protocol — MCP
+
+The transcript gives a preview of **Model Context Protocol (MCP)**.
+
+The core idea:
+
+> MCP provides a standardized way for AI applications to connect to external tools and data sources.
+
+Instead of manually implementing every integration:
+
+```text
+Agent
+ ↓
+Custom Python wrapper
+ ↓
+API
+ ↓
+External system
+```
+
+you can connect an MCP server:
+
+```text
+Agent
+ ↓
+MCP
+ ↓
+External tool/service
+```
+
+MCP defines standardized interactions between AI applications and servers that expose capabilities such as tools, resources, and prompts.
+
+---
+
+# 18. Why MCP Is Important
+
+The transcript gives a particularly good use case:
+
+### Problem
+
+An older model doesn't know about a newly released API or SDK feature.
+
+### Solution
+
+Connect the agent to an MCP server that can retrieve current documentation.
+
+```text
+User question
+      ↓
+Agent
+      ↓
+MCP server
+      ↓
+Current documentation
+      ↓
+Agent
+      ↓
+Accurate answer
+```
+
+The transcript demonstrates this using a documentation-oriented MCP service.
+
+### Key insight
+
+MCP allows capabilities written by someone else to become available to your agent without you having to implement every integration yourself.
+
+---
+
+# 19. MCP vs Function Tools
+
+A useful distinction:
+
+### Function tool
+
+You define the function yourself:
+
+```python
+@function_tool
+def get_customer():
+    ...
+```
+
+### MCP
+
+Someone else can expose the functionality through an MCP server.
+
+```text
+Agent
+ ↓
+MCP client
+ ↓
+MCP server
+ ↓
+External capability
+```
+
+This makes MCP especially interesting for **interoperability and reusable integrations**.
+
+The official Agents SDK supports MCP-backed tools alongside normal function tools.
+
+---
+
+# 20. Hosted Tools
+
+The transcript also discusses hosted tools such as:
+
+* Web search
+* File search
+* Code interpreter
+* Hosted MCP
+
+The advantage is speed of development.
+
+You can get a working prototype without building every infrastructure component yourself.
+
+The trade-offs discussed include:
+
+* Cost
+* Provider dependence
+* Reduced infrastructure control
+* Potential ecosystem lock-in
+
+The transcript specifically notes that OpenAI-hosted functionality is more tightly connected to OpenAI infrastructure than the model-agnostic parts of the Agents SDK.
+
+---
+
+# 21. Deep Research Agent
+
+The major project introduced in the transcript is a **Deep Research Agent**.
+
+The important insight is that a deep-research system does not need to be magical.
+
+It can be decomposed into a small number of understandable components.
+
+The proposed architecture contains four agents:
+
+```text
+                User Question
+                      ↓
+                 Planner Agent
+                      ↓
+             Search Plan / Queries
+                      ↓
+        ┌─────────────┼─────────────┐
+        ↓             ↓             ↓
+    Search Agent  Search Agent  Search Agent
+        └─────────────┼─────────────┘
+                      ↓
+                 Writer Agent
+                      ↓
+                 Research Report
+                      ↓
+                 Email Agent
+                      ↓
+                    Email
+```
+
+The transcript explicitly describes four agents:
+
+1. **Search Agent**
+2. **Planner Agent**
+3. **Writer Agent**
+4. **Email Agent**
+
+---
+
+# 22. Search Agent
+
+The Search Agent:
+
+* Receives a search query.
+* Uses web search.
+* Produces a concise summary of results.
+
+The transcript demonstrates this with a hosted web-search tool.
+
+The important point is that the search agent is intentionally simple.
+
+```text
+Search term
+    ↓
+Web search
+    ↓
+Summary
+```
+
+---
+
+# 23. Planner Agent
+
+The Planner Agent receives the user's original question and generates multiple searches.
+
+For example:
+
+```text
+User question
+      ↓
+Planner
+      ↓
+1. Query A
+2. Query B
+3. Query C
+4. Query D
+5. Query E
+```
+
+The transcript uses structured output for this.
+
+Conceptually:
+
+```python
+class WebSearchItem(BaseModel):
+    reason: str
+    query: str
+
+
+class WebSearchPlan(BaseModel):
+    searches: list[WebSearchItem]
+```
+
+This is a strong example of structured output being used to control an agentic workflow.
+
+---
+
+# 24. Why Multiple Searches?
+
+One search is unlikely to provide sufficient coverage.
+
+Multiple searches allow the research system to investigate different dimensions of the question.
+
+For example:
+
+```text
+Question:
+"What are the leading AI agent frameworks?"
+
+Search 1 → popularity
+Search 2 → GitHub activity
+Search 3 → enterprise adoption
+Search 4 → technical capabilities
+Search 5 → community activity
+```
+
+The planner therefore converts:
+
+```text
+one ambiguous question
+```
+
+into:
+
+```text
+multiple concrete research tasks
+```
+
+---
+
+# 25. Parallel Search Execution
+
+The transcript then uses Python orchestration to run the searches in parallel.
+
+Conceptually:
+
+```python
+results = await asyncio.gather(
+    search(query_1),
+    search(query_2),
+    search(query_3),
+    search(query_4),
+    search(query_5),
+)
+```
+
+Instead of:
+
+```text
+Search 1
+ ↓
+Search 2
+ ↓
+Search 3
+ ↓
+Search 4
+ ↓
+Search 5
+```
+
+you get:
+
+```text
+Search 1 ─┐
+Search 2 ─┤
+Search 3 ─┼──→ Writer
+Search 4 ─┤
+Search 5 ─┘
+```
+
+This is one of the biggest practical benefits of code-based orchestration.
+
+---
+
+# 26. Writer Agent
+
+The Writer Agent receives:
+
+* Original research question
+* Search results
+
+and produces a structured research report.
+
+The transcript defines a report object containing:
+
+* Short summary
+* Markdown report
+* Follow-up research questions
+
+Conceptually:
+
+```text
+Search results
+      ↓
+Writer Agent
+      ↓
+ReportData
+ ├── summary
+ ├── report
+ └── follow-up questions
+```
+
+---
+
+# 27. Email Agent
+
+The Email Agent takes the completed research report and turns it into an email.
+
+It uses a normal function tool such as:
+
+```text
+send_email(subject, body)
+```
+
+The transcript uses the same email infrastructure introduced in the earlier sales-agent project.
+
+This demonstrates an important pattern:
+
+> **LLMs decide what content should be produced; ordinary code handles real-world side effects.**
+
+---
+
+# 28. Complete Deep Research Workflow
+
+The entire system becomes:
+
+```text
+                 User Question
+                       │
+                       ▼
+                ┌─────────────┐
+                │   Planner   │
+                └──────┬──────┘
+                       │
+                Search Plan
+                       │
+         ┌─────────────┼─────────────┐
+         ▼             ▼             ▼
+      Search         Search        Search
+      Agent          Agent         Agent
+         │             │             │
+         └─────────────┼─────────────┘
+                       ▼
+                 Search Results
+                       │
+                       ▼
+                ┌─────────────┐
+                │    Writer   │
+                └──────┬──────┘
+                       │
+                       ▼
+                 Research Report
+                       │
+                       ▼
+                ┌─────────────┐
+                │    Email    │
+                └──────┬──────┘
+                       │
+                       ▼
+                     User
+```
+
+The transcript emphasizes that the apparent complexity of "deep research" can be reduced to these relatively simple components.
+
+---
+
+# 29. Why Code Orchestration Works Well Here
+
+The workflow is already known:
+
+```text
+Plan
+→ Search
+→ Aggregate
+→ Write
+→ Send
+```
+
+Therefore there is little reason to make an LLM decide the overall workflow.
+
+Code can guarantee:
+
+```text
+Step 1 happens
+↓
+Step 2 happens
+↓
+Step 3 happens
+↓
+Step 4 happens
+```
+
+This makes the system easier to reason about and debug.
+
+---
+
+# 30. Where LLM Orchestration Would Help
+
+The transcript contrasts this with a more autonomous architecture.
+
+An LLM could decide:
+
+```text
+Question
+ ↓
+What should I research?
+ ↓
+Search
+ ↓
+What should I investigate next?
+ ↓
+Search again
+ ↓
+Do I need another source?
+ ↓
+Write report
+```
+
+This gives more flexibility but introduces more uncertainty.
+
+### Trade-off
+
+| Code orchestration | LLM orchestration         |
+| ------------------ | ------------------------- |
+| Predictable        | Autonomous                |
+| Deterministic      | Flexible                  |
+| Easier to debug    | More difficult to debug   |
+| Known workflow     | Dynamic workflow          |
+| More reliable      | Potentially more creative |
+| Less autonomous    | More autonomous           |
+
+---
+
+# 31. The Most Important Architectural Principle
+
+A powerful way to think about agentic systems is:
+
+```text
+LLM = judgment / generation
+Code = control / guarantees
+Tools = capabilities
+Structured outputs = interface
+Guardrails = constraints
+Tracing = observability
+Sandbox = execution boundary
+MCP = interoperability
+```
+
+This is probably the most useful mental model to retain from the entire lesson.
+
+---
+
+# 32. Production Mindset
+
+The transcript repeatedly emphasizes that **a demo working is not the same as a production system working**.
+
+You should evaluate:
+
+* Accuracy
+* Latency
+* Cost
+* Reliability
+* Tool failures
+* Safety
+* User satisfaction
+* Business outcomes
+
+For a research agent, for example:
+
+```text
+Did it produce a report?
+```
+
+is not enough.
+
+You should ask:
+
+```text
+Was the report factually accurate?
+Were sources relevant?
+Was important information missed?
+How much did it cost?
+How long did it take?
+Would users trust it?
+```
+
+---
+
+# 33. Key Lessons to Remember
+
+## The 10 most important takeaways
+
+1. **Prefer code orchestration when the workflow is known.**
+2. **Use LLM orchestration when you genuinely need dynamic decision-making.**
+3. **Agents can be exposed as tools to other agents.**
+4. **Handoffs transfer control rather than simply returning a result.**
+5. **Structured outputs turn LLM responses into usable application data.**
+6. **Pydantic is an excellent way to define structured agent outputs in Python.**
+7. **Guardrails are essential for controlling unreliable agent behavior.**
+8. **Tracing is critical for debugging agentic workflows.**
+9. **Sandbox agents provide an isolated workspace for code/file operations.**
+10. **MCP provides a standardized way to connect agents with external tools and data.**
+
+---
+
+# 34. Quick Revision Cheat Sheet
+
+| Concept            | Remember                               |
+| ------------------ | -------------------------------------- |
+| Agent              | Model + instructions + tools           |
+| Runner             | Executes agent workflows               |
+| Tool               | Capability an agent can invoke         |
+| Agents-as-tools    | Specialist returns result to manager   |
+| Handoff            | Specialist takes control               |
+| Structured output  | Typed/schema-constrained result        |
+| Pydantic           | Python data/schema model               |
+| Guardrail          | Validation/control mechanism           |
+| Tripwire           | Stops execution when a guardrail fails |
+| Tracing            | Observe/debug agent execution          |
+| Sandbox            | Isolated execution workspace           |
+| MCP                | Standardized tool/context integration  |
+| Planner            | Converts question → searches           |
+| Search agent       | Performs research                      |
+| Writer             | Converts research → report             |
+| Email agent        | Performs delivery                      |
+| `asyncio.gather`   | Run independent tasks concurrently     |
+| Hosted tool        | Provider-managed capability            |
+| Code orchestration | Predictable workflow                   |
+| LLM orchestration  | Autonomous workflow                    |
+
+---
+
+# 35. Recommended Learning Path
+
+If you want to go deeper, study these in roughly this order:
+
+### Step 1 — Agents SDK fundamentals
+
+[OpenAI Agents SDK documentation](https://openai.github.io/openai-agents-python/?utm_source=chatgpt.com)
+
+Learn:
+
+* Agents
+* Runner
+* Tools
+* Models
+* Sessions
+
+### Step 2 — Multi-agent orchestration
+
+[Agents SDK — Agent orchestration](https://openai.github.io/openai-agents-python/multi_agent/?utm_source=chatgpt.com)
+
+Focus on:
+
+* Agents as tools
+* Handoffs
+* Manager/specialist patterns
+
+### Step 3 — Structured outputs
+
+[Agents SDK — Agents and structured output types](https://openai.github.io/openai-agents-python/agents/?utm_source=chatgpt.com)
+
+Then learn:
+
+* JSON Schema
+* Pydantic
+* Schema validation
+* Typed application logic
+
+### Step 4 — Pydantic
+
+[Pydantic documentation](https://docs.pydantic.dev/?utm_source=chatgpt.com)
+
+Focus on:
+
+* `BaseModel`
+* Validation
+* JSON Schema
+* Nested models
+
+### Step 5 — Guardrails
+
+[OpenAI Agents SDK — Guardrails](https://openai.github.io/openai-agents-python/guardrails/?utm_source=chatgpt.com)
+
+Study:
+
+* Input guardrails
+* Output guardrails
+* Tool guardrails
+* Tripwires
+* Parallel vs blocking execution
+
+### Step 6 — Tracing
+
+[OpenAI Agents SDK — Tracing](https://openai.github.io/openai-agents-python/tracing/?utm_source=chatgpt.com)
+
+Learn to inspect:
+
+```text
+LLM calls
+Tools
+Handoffs
+Guardrails
+Token usage
+Latency
+```
+
+### Step 7 — Sandbox agents
+
+[OpenAI Agents SDK — Sandbox concepts](https://openai.github.io/openai-agents-python/sandbox/guide/?utm_source=chatgpt.com)
+
+Focus on:
+
+* `SandboxAgent`
+* Manifest
+* Capabilities
+* Sandbox sessions
+* `SandboxRunConfig`
+
+### Step 8 — MCP
+
+[OpenAI Agents SDK — MCP integration](https://openai.github.io/openai-agents-python/mcp/?utm_source=chatgpt.com)
+
+And study the protocol itself:
+
+[Model Context Protocol specification](https://modelcontextprotocol.io/specification/2025-03-26/basic?utm_source=chatgpt.com)
+
+MCP is especially worth studying deeply because its specification continues to evolve; the July 2026 release introduced significant protocol changes, including a stateless protocol core.
+
+### Step 9 — Web search
+
+[OpenAI API developer quickstart — tools and web search](https://platform.openai.com/docs/quickstart/make-your-first-api-request?utm_source=chatgpt.com)
+
+Understand how web search can be attached to model calls and used as part of research workflows.
+
+---
+
+# 36. Final Mental Model
+
+The entire lesson can be compressed into this:
+
+```text
+                    AGENTIC APPLICATION
+                           │
+          ┌────────────────┼────────────────┐
+          │                │                │
+       Agents            Tools           MCP
+          │                │                │
+          └──────────┬─────┴────────────────┘
+                     │
+               Orchestration
+                /          \
+             Code           LLM
+              │              │
+        Predictable       Autonomous
+              │              │
+              └──────┬───────┘
+                     │
+             Structured Output
+                     │
+                Guardrails
+                     │
+                 Tracing
+                     │
+                  Sandbox
+                     │
+               Production App
+```
+
+**The deepest lesson:** don't think of an agent as a mysterious autonomous entity. Think of it as an LLM embedded inside a software system. **Code controls the workflow, tools provide capabilities, structured outputs create reliable interfaces, guardrails enforce constraints, tracing provides visibility, sandboxes provide safe execution, and MCP connects the system to external capabilities.**
+
+The uploaded transcript itself demonstrates this progression from simple multi-agent orchestration to a complete deep-research workflow.
