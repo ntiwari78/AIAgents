@@ -6,6 +6,11 @@
 ---
 ---
 
+![Palantir-aip](https://github.com/ntiwari78/AIAgents/blob/main/images/Palantir-aip.jpeg)
+
+---
+---
+
 # Palantir AIP Architecture Layers
 
 Palantir’s **Artificial Intelligence Platform (AIP)** sits atop a multi-layered architecture that tightly integrates enterprise data, operational logic, and AI models. At the heart of this stack is the **Ontology system**, which unifies data (“nouns”), processes (“verbs”), and security policies into a single semantic graph. On top of the Ontology are Foundry/Gotham applications and user interfaces, while below it live data pipelines and compute services. AIP then connects third-party LLMs and AI agents into this mix, enabling AI-driven workflows that respect all security and governance guardrails. The architecture can be described in roughly four layers:
