@@ -59,6 +59,9 @@ Even if you have never explicitly designed a harness, you already have one.
 
 Every rule you repeatedly paste into a chat is effectively part of your harness.
 
+![img1](https://github.com/ntiwari78/AIAgents/blob/main/images/1_six_surfaces.png)
+
+
 ## Analysis
 
 The important conceptual shift is:
@@ -74,6 +77,8 @@ Anthropic similarly describes harness engineering as critical for long-running a
 ---
 
 # 2. Real-World Harness Patterns
+
+![img2](https://github.com/ntiwari78/AIAgents/blob/main/images/2_three_harnesses.png)
 
 The article highlights three very different approaches.
 
@@ -270,6 +275,8 @@ The article's central framework consists of six decisions.
 
 ---
 
+![img3](https://github.com/ntiwari78/AIAgents/blob/main/images/3_the_agent_loop.png)
+
 ## Decision 1: The Loop and Where It Stops
 
 An agent normally works through an iterative loop:
@@ -340,6 +347,7 @@ Bad:
 Better:
 
 > Requests without an `id` must return HTTP 400 with a structured error response, and the corresponding automated test must pass.
+
 
 #### 2. Decide what happens after failure
 
@@ -956,6 +964,8 @@ OpenAI similarly describes using tests, review agents, browser interaction, logs
 ---
 
 # 6. The Practical Weekend Version
+
+![img4](https://github.com/ntiwari78/AIAgents/blob/main/images/4_the_weekend_version.png)
 
 If you do not want to build a sophisticated multi-agent platform, start small.
 
