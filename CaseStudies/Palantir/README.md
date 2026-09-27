@@ -1,3 +1,11 @@
+
+# Main Resource
+- https://www.palantir.com/docs/foundry/architecture-center/aip-architecture
+- https://www.palantir.com/docs/foundry/architecture-center/ontology-system/
+
+---
+---
+
 # Palantir AIP Architecture Layers
 
 Palantir’s **Artificial Intelligence Platform (AIP)** sits atop a multi-layered architecture that tightly integrates enterprise data, operational logic, and AI models. At the heart of this stack is the **Ontology system**, which unifies data (“nouns”), processes (“verbs”), and security policies into a single semantic graph. On top of the Ontology are Foundry/Gotham applications and user interfaces, while below it live data pipelines and compute services. AIP then connects third-party LLMs and AI agents into this mix, enabling AI-driven workflows that respect all security and governance guardrails. The architecture can be described in roughly four layers:
@@ -55,3 +63,698 @@ Palantir is designed to play well with other systems. All layers use **open stan
 
 Palantir’s official documentation provides in-depth details on each layer and component. In particular, see the [AIP Architecture Overview](https://www.palantir.com/docs/foundry/architecture-center/aip-architecture), the [Integrated Platforms overview](https://www.palantir.com/docs/foundry/architecture-center/platforms), the [Ontology system](https://www.palantir.com/docs/foundry/architecture-center/ontology-system), the [Multimodal Data Plane](https://www.palantir.com/docs/foundry/architecture-center/multimodal-data-plane), and the [Security and Governance overview](https://www.palantir.com/docs/foundry/security/overview) for authoritative guidance. These explain how the layers connect and offer further best-practice guidance for building secure, scalable AI-driven systems on Palantir’s platform.
 
+---
+---
+
+You're right. The previous output did not surface the reference links. I checked Palantir's current documentation and mapped the **12 architecture categories in the diagram** to the most relevant official documentation pages. The Palantir architecture page itself confirms that these are the 12 general capability categories of AIP. ([Palantir][1])
+
+Below is a link set you can use directly in the Markdown report.
+
+# Palantir AIP Architecture — Authoritative Reference Links
+
+## 0. Master architecture references
+
+These are the best starting points because they explain how the whole architecture fits together.
+
+| Topic                        | Authoritative reference                                                                                                                        | What it covers                                                                    |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| **AIP Architecture**         | [Palantir AIP Architecture Overview](https://www.palantir.com/docs/foundry/architecture-center/aip-architecture?utm_source=chatgpt.com)        | The 12 architecture categories shown in your diagram                              |
+| **Architecture Center**      | [Palantir Architecture Center](https://www.palantir.com/docs/foundry/architecture-center/overview?utm_source=chatgpt.com)                      | Relationship between AIP, Foundry, Apollo, Ontology, data/logic/workflow services |
+| **Foundry Documentation**    | [Palantir Foundry Documentation](https://www.palantir.com/docs/foundry?utm_source=chatgpt.com)                                                 | Complete official documentation index                                             |
+| **Foundry Platform Summary** | [Foundry Platform Summary for LLMs](https://www.palantir.com/docs/foundry/getting-started/foundry-platform-summary-llm?utm_source=chatgpt.com) | Concise architecture description and terminology                                  |
+
+The current Palantir documentation explicitly describes AIP as having **12 key capability categories**, matching the architecture diagram: secure LLM integration, observability, context engineering, Ontology, vector/compute/tool services, security/governance, agent lifecycle, operational automation, development environments, human+AI applications, package/release/deploy, and enterprise automation. ([Palantir][2])
+
+---
+
+# 1. Secure LLM Integration & Access
+
+This corresponds to the bottom-right portion of your diagram:
+
+> **Secure LLM Integration, Hosting, Access**
+
+including:
+
+* Commercial LLMs
+* Open-source LLMs
+* Private/custom models
+* Model provider integration
+* Infrastructure
+* Smart caching
+* Dynamic retry
+* PII obfuscation
+* Content detection/moderation
+* Validation & oversight
+* Model enablement
+* Usage tracking
+* Rate limiting
+
+### Official Palantir references
+
+**AIP Architecture — Secure LLM Integration**
+
+[AIP Architecture](https://www.palantir.com/docs/foundry/architecture-center/aip-architecture?utm_source=chatgpt.com)
+
+**Model Catalog**
+
+[AIP Model Catalog](https://www.palantir.com/docs/foundry/model-catalog/overview?utm_source=chatgpt.com)
+
+Model Catalog is specifically intended for discovering and selecting the LLMs available in AIP and provides sandbox/playground capabilities. ([Palantir][3])
+
+**LLM integrations / AIP**
+
+[Palantir AIP Documentation](https://www.palantir.com/docs/foundry/aip?utm_source=chatgpt.com)
+
+**Foundry platform summary**
+
+[LLM and AIP Platform Summary](https://www.palantir.com/docs/foundry/getting-started/foundry-platform-summary-llm?utm_source=chatgpt.com)
+
+The current documentation also describes provider-compatible APIs for providers such as OpenAI and Anthropic, allowing external development tools to route requests through Foundry infrastructure while obtaining platform-level controls such as rate limiting, usage tracking and zero-data-retention capabilities. ([Palantir][2])
+
+### Useful external references
+
+**NIST AI Risk Management Framework**
+
+[NIST AI RMF](https://www.nist.gov/itl/ai-risk-management-framework?utm_source=chatgpt.com)
+
+**OWASP LLM Top 10**
+
+[OWASP Top 10 for LLM Applications](https://owasp.org/www-project-top-10-for-large-language-model-applications/?utm_source=chatgpt.com)
+
+**NIST Generative AI Profile**
+
+[NIST Generative AI Profile](https://www.nist.gov/itl/ai-risk-management-framework/ai-rmf-generative-ai-profile?utm_source=chatgpt.com)
+
+These are particularly useful for the **validation, moderation, prompt injection, data leakage and model-risk** aspects of this layer.
+
+---
+
+# 2. End-to-End Observability
+
+Your diagram shows:
+
+> **End-to-End Observability**
+
+and underneath it:
+
+* Model Catalog
+* execution monitoring
+* telemetry
+* workflow observability
+
+### Official references
+
+**Ontology & AIP Observability**
+
+[Ontology and AIP Observability](https://www.palantir.com/docs/foundry/aip-observability/overview?utm_source=chatgpt.com)
+
+This is probably the **single most important reference for Layer 2**.
+
+Palantir documents metrics, execution history, distributed tracing, logging, token usage, prompts, error details and performance monitoring for AIP/Ontology workflows. ([Palantir][4])
+
+**Foundry Observability**
+
+[Foundry Observability](https://www.palantir.com/docs/foundry/observability/overview?utm_source=chatgpt.com)
+
+This covers:
+
+* metrics
+* health checks
+* logs
+* traces
+* alerts
+* operational monitoring
+* telemetry export
+
+([Palantir][5])
+
+### External references
+
+**OpenTelemetry**
+
+[OpenTelemetry](https://opentelemetry.io/docs/?utm_source=chatgpt.com)
+
+**OpenTelemetry Traces**
+
+[OpenTelemetry Tracing](https://opentelemetry.io/docs/concepts/signals/traces/?utm_source=chatgpt.com)
+
+**OpenTelemetry Metrics**
+
+[OpenTelemetry Metrics](https://opentelemetry.io/docs/concepts/signals/metrics/?utm_source=chatgpt.com)
+
+**Google SRE Monitoring**
+
+[Google SRE — Monitoring Distributed Systems](https://sre.google/sre-book/monitoring-distributed-systems/?utm_source=chatgpt.com)
+
+---
+
+# 3. Context Engineering
+
+This is the top-left area of the diagram.
+
+It contains:
+
+### Contextual Data
+
+* External Logic
+* Model Building
+* Functions
+* Data/context integration
+
+### Contextual Logic
+
+### Systems of Action
+
+* Event-driven
+* Streaming
+* Edge integration
+
+Palantir explicitly describes context engineering as integrating **data, logic and action** into the Ontology through batch, streaming and CDC mechanisms. ([Palantir][1])
+
+### Official references
+
+**AIP Architecture — Context Engineering**
+
+[Context Engineering in AIP Architecture](https://www.palantir.com/docs/foundry/architecture-center/aip-architecture?utm_source=chatgpt.com)
+
+**Data Integration**
+
+[Foundry Data Integration](https://www.palantir.com/docs/foundry/data-integration/overview?utm_source=chatgpt.com)
+
+**Data Pipelines**
+
+[What is a Data Pipeline?](https://www.palantir.com/docs/foundry/data-integration/data-pipeline?utm_source=chatgpt.com)
+
+**Streaming**
+
+[Foundry Streaming](https://www.palantir.com/docs/foundry/data-integration/streaming?utm_source=chatgpt.com)
+
+**Change Data Capture**
+
+[Change Data Capture](https://www.palantir.com/docs/foundry/data-integration/change-data-capture/overview?utm_source=chatgpt.com)
+
+**Functions**
+
+[Foundry Functions](https://www.palantir.com/docs/foundry/functions/overview?utm_source=chatgpt.com)
+
+**Transforms**
+
+[Foundry Transforms](https://www.palantir.com/docs/foundry/transforms/overview?utm_source=chatgpt.com)
+
+### External references
+
+**Apache Kafka**
+
+[Apache Kafka Documentation](https://kafka.apache.org/documentation/?utm_source=chatgpt.com)
+
+**Apache Flink**
+
+[Apache Flink Documentation](https://nightlies.apache.org/flink/flink-docs-stable/?utm_source=chatgpt.com)
+
+**Change Data Capture — Debezium**
+
+[Debezium Documentation](https://debezium.io/documentation/?utm_source=chatgpt.com)
+
+---
+
+# 4. Ontology
+
+This is arguably the **central architectural layer**.
+
+The diagram shows:
+
+* Ontology Core
+* Semantic
+* Kinetic
+* Dynamic
+* Human + AI Decision Model
+* Media & Vector Services
+* Tool Services
+* Data
+* Logic
+* Actions
+* OSDK
+
+Palantir describes the Ontology as integrating **data + logic + action + security** and representing the operational world of an enterprise. ([Palantir][6])
+
+### Essential references
+
+**Ontology Core Concepts**
+
+[Ontology Core Concepts](https://www.palantir.com/docs/foundry/ontology/core-concepts?utm_source=chatgpt.com)
+
+This explains:
+
+* Object Types
+* Properties
+* Link Types
+* Action Types
+* Functions
+* Interfaces
+* Roles
+* Object Views
+
+([Palantir][7])
+
+**Ontology System Architecture**
+
+[The Ontology System](https://www.palantir.com/docs/foundry/architecture-center/ontology-system?utm_source=chatgpt.com)
+
+This is especially important for your architecture paper because it explains the:
+
+* Ontology Language
+* Ontology Engine
+* Ontology Toolchain
+* Data
+* Logic
+* Actions
+* Security
+
+([Palantir][6])
+
+**Why Ontology?**
+
+[Why Create an Ontology?](https://www.palantir.com/docs/foundry/ontology/why-ontology?utm_source=chatgpt.com)
+
+### Ontology development
+
+[Object Types](https://www.palantir.com/docs/foundry/ontology/object-types/overview?utm_source=chatgpt.com)
+
+[Link Types](https://www.palantir.com/docs/foundry/ontology/link-types/overview?utm_source=chatgpt.com)
+
+[Action Types](https://www.palantir.com/docs/foundry/ontology/action-types/overview?utm_source=chatgpt.com)
+
+[Functions](https://www.palantir.com/docs/foundry/functions/overview?utm_source=chatgpt.com)
+
+[Ontology SDK](https://www.palantir.com/docs/foundry/ontology-sdk/overview?utm_source=chatgpt.com)
+
+---
+
+# 5. Vector, Compute & Tool Services
+
+The diagram shows:
+
+### Media & Vector Services
+
+* Documents
+* Images
+* Videos
+* Geospatial
+* Audio
+* Vector capabilities
+
+### Multimodal Compute Services
+
+* Interactive
+* Batch
+* Serverless
+* Streaming
+* BYO compute
+
+### Tool Services
+
+* Data
+* Logic
+* Actions
+* OSDK
+
+### Official references
+
+**Compute Modules**
+
+[Compute Modules](https://www.palantir.com/docs/foundry/compute-modules/overview?utm_source=chatgpt.com)
+
+Compute Modules allow existing code and containers to run inside Foundry, including custom functions, APIs, models and real-time processing. ([Palantir][8])
+
+**Media Sets**
+
+[Media Sets](https://www.palantir.com/docs/foundry/data-integration/media-sets/overview?utm_source=chatgpt.com)
+
+**Virtual Media**
+
+[Virtual Media](https://www.palantir.com/docs/foundry/data-integration/virtual-media/overview?utm_source=chatgpt.com)
+
+**Ontology Toolchain**
+
+[Ontology SDK](https://www.palantir.com/docs/foundry/ontology-sdk/overview?utm_source=chatgpt.com)
+
+---
+
+# 6. Security & Governance
+
+The diagram explicitly lists:
+
+* Role-based controls
+* Marking-based controls
+* Purpose-based controls
+* System-wide branching
+* Approvals
+* Checkpoints
+
+This is a **cross-cutting layer**, rather than merely another box in the stack.
+
+### Official references
+
+**Foundry Security Overview**
+
+[Palantir Security Overview](https://www.palantir.com/docs/foundry/security/overview?utm_source=chatgpt.com)
+
+Palantir documents authentication, authorization, mandatory controls, discretionary controls, markings, organizations, resource-level roles and row/column policies. ([Palantir][9])
+
+**Access Control Propagation**
+
+[Access Control Propagation](https://www.palantir.com/docs/foundry/security/access-control-propagation?utm_source=chatgpt.com)
+
+This is an especially useful reference for understanding how security policies propagate through data and derived artifacts. ([Palantir][10])
+
+**AI Ethics & Governance**
+
+[AIP Ethics and Governance](https://www.palantir.com/docs/foundry/aip/ethics-governance?utm_source=chatgpt.com)
+
+**Approvals**
+
+[Approvals](https://www.palantir.com/docs/foundry/approvals/overview?utm_source=chatgpt.com)
+
+**Checkpoints**
+
+[Checkpoints](https://www.palantir.com/docs/foundry/checkpoints/overview?utm_source=chatgpt.com)
+
+The official application reference describes Approvals as managing requests/approvals and Checkpoints as governance mechanisms that can require justification during sensitive interactions. ([Palantir][11])
+
+### External standards
+
+**NIST Cybersecurity Framework**
+
+[NIST Cybersecurity Framework 2.0](https://www.nist.gov/cyberframework?utm_source=chatgpt.com)
+
+**NIST Zero Trust Architecture**
+
+[NIST SP 800-207 — Zero Trust Architecture](https://csrc.nist.gov/pubs/sp/800/207/final?utm_source=chatgpt.com)
+
+**OWASP ASVS**
+
+[OWASP Application Security Verification Standard](https://owasp.org/www-project-application-security-verification-standard/?utm_source=chatgpt.com)
+
+---
+
+# 7. Agent Lifecycle
+
+Your diagram contains:
+
+* Agent Building
+* Agent Orchestration
+* Evaluation Suites
+
+This is the **build → test → evaluate → deploy → monitor** lifecycle.
+
+### Official references
+
+**AIP Architecture**
+
+[AIP Architecture — Agent Lifecycle](https://www.palantir.com/docs/foundry/architecture-center/aip-architecture?utm_source=chatgpt.com)
+
+**AIP Chatbot Studio**
+
+[AIP Chatbot Studio](https://www.palantir.com/docs/foundry/aip/chatbot-studio/overview?utm_source=chatgpt.com)
+
+**AIP Logic**
+
+[AIP Logic](https://www.palantir.com/docs/foundry/aip/logic/overview?utm_source=chatgpt.com)
+
+**AIP Evals**
+
+[AIP Evals](https://www.palantir.com/docs/foundry/aip-evals/overview?utm_source=chatgpt.com)
+
+The current Palantir platform summary describes AIP Evals as supporting test cases, debugging, iteration and comparison of agent performance across models and executions. ([Palantir][2])
+
+### Agent security
+
+[AI FDE Security & Governance](https://www.palantir.com/docs/foundry/ai-fde/security-and-governance?utm_source=chatgpt.com)
+
+This is particularly useful because it demonstrates Palantir's approach to agent permissions, approvals, branch-aware controls and auditability. ([Palantir][12])
+
+---
+
+# 8. Operational Automation
+
+Your diagram shows three modes:
+
+### Scheduled Automation
+
+### Event-driven Automation
+
+### API-driven Automation
+
+### Official references
+
+[Foundry Automations](https://www.palantir.com/docs/foundry/automate/overview?utm_source=chatgpt.com)
+
+[AIP Automate](https://www.palantir.com/docs/foundry/aip/automate/overview?utm_source=chatgpt.com)
+
+[Workflow Authoring](https://www.palantir.com/docs/foundry/workshop/workflows/overview?utm_source=chatgpt.com)
+
+The architecture documentation describes Workflow Services as supporting interactive compute, event-driven automations, scheduled automations and both pro-code and low-code workflow authoring. ([Palantir][13])
+
+---
+
+# 9. Development Environments
+
+The diagram shows:
+
+* Integrated VS Code
+* Integrated Jupyter
+* Compute Modules
+* MCP
+* IDE extensions
+
+### Official references
+
+**Developer Toolchain**
+
+[Palantir Developer Toolchain](https://www.palantir.com/docs/foundry/dev-toolchain/overview?utm_source=chatgpt.com)
+
+**VS Code**
+
+[VS Code Workspaces](https://www.palantir.com/docs/foundry/code-workspaces/overview?utm_source=chatgpt.com)
+
+**Code Workspaces**
+
+[Code Workspaces](https://www.palantir.com/docs/foundry/code-workspaces/overview?utm_source=chatgpt.com)
+
+**Palantir MCP**
+
+[Palantir MCP](https://www.palantir.com/docs/foundry/palantir-mcp/overview?utm_source=chatgpt.com)
+
+This is now particularly important. Palantir documents MCP as allowing AI IDEs and agents to build, modify and review applications across data integration, Ontology configuration and application development. ([Palantir][14])
+
+**Ontology MCP**
+
+[Ontology MCP](https://www.palantir.com/docs/foundry/ontology-mcp/overview?utm_source=chatgpt.com)
+
+### External MCP specification
+
+[Model Context Protocol — Official Specification](https://modelcontextprotocol.io/specification/latest?utm_source=chatgpt.com)
+
+This is the appropriate external reference when explaining MCP itself rather than Palantir's implementation.
+
+---
+
+# 10. Human + AI Applications
+
+The diagram shows:
+
+* No-code / low-code AIP applications
+* Object-oriented analytics
+* Real-time analytics
+* Workflow management
+* Resource management
+
+### Official references
+
+**Ontology-aware Applications**
+
+[Ontology-aware Applications](https://www.palantir.com/docs/foundry/ontology/applications?utm_source=chatgpt.com)
+
+Palantir identifies Object Views, Object Explorer, Quiver and Workshop as important Ontology-aware applications. ([Palantir][15])
+
+**Workshop**
+
+[Workshop](https://www.palantir.com/docs/foundry/workshop/overview?utm_source=chatgpt.com)
+
+**Slate**
+
+[Slate](https://www.palantir.com/docs/foundry/slate/overview?utm_source=chatgpt.com)
+
+**Object Views**
+
+[Object Views](https://www.palantir.com/docs/foundry/ontology/object-views/overview?utm_source=chatgpt.com)
+
+**Quiver**
+
+[Quiver](https://www.palantir.com/docs/foundry/quiver/overview?utm_source=chatgpt.com)
+
+**OSDK Applications**
+
+[Ontology SDK Applications](https://www.palantir.com/docs/foundry/ontology-sdk/overview?utm_source=chatgpt.com)
+
+Palantir describes applications as consuming the data and object layers to support operational workflows, with Workshop, Slate, analytics tools and custom OSDK applications forming major application surfaces. ([Palantir][2])
+
+---
+
+# 11. Package, Release & Deploy
+
+The diagram shows:
+
+* Product packaging
+* Dependency management
+* Environment promotion
+* Release channels
+
+This is essentially the **DevOps / product-delivery layer**.
+
+### Official references
+
+**Foundry DevOps**
+
+[Foundry DevOps](https://www.palantir.com/docs/foundry/devops/overview?utm_source=chatgpt.com)
+
+**Projects**
+
+[Foundry Projects](https://www.palantir.com/docs/foundry/foundry-projects/overview?utm_source=chatgpt.com)
+
+**Global Branching**
+
+[Global Branching](https://www.palantir.com/docs/foundry/building-pipelines/global-branching/overview?utm_source=chatgpt.com)
+
+**Release Management**
+
+[Foundry Release Management](https://www.palantir.com/docs/foundry/release-management/overview?utm_source=chatgpt.com)
+
+**Marketplace**
+
+[Foundry Marketplace](https://www.palantir.com/docs/foundry/marketplace/overview?utm_source=chatgpt.com)
+
+Palantir's architecture documentation specifically describes packaging data pipelines, Ontology definitions, automations and applications and promoting them across heterogeneous target environments. ([Palantir][1])
+
+### External DevOps references
+
+**DORA**
+
+[DORA Research](https://dora.dev/?utm_source=chatgpt.com)
+
+**CNCF**
+
+[Cloud Native Computing Foundation](https://www.cncf.io/?utm_source=chatgpt.com)
+
+**Kubernetes**
+
+[Kubernetes Documentation](https://kubernetes.io/docs/?utm_source=chatgpt.com)
+
+---
+
+# 12. Enterprise Automation
+
+The final layer shows:
+
+* AI FDE
+* AIP Analyst
+* AIP-based development
+* Code assistance
+* AI-enabled APIs
+* Enterprise-wide autonomous workflows
+
+### Official references
+
+**AI FDE**
+
+[Palantir AI FDE](https://www.palantir.com/docs/foundry/ai-fde/overview?utm_source=chatgpt.com)
+
+**AI FDE Security**
+
+[AI FDE Security & Governance](https://www.palantir.com/docs/foundry/ai-fde/security-and-governance?utm_source=chatgpt.com)
+
+**AIP Analyst**
+
+[AIP Analyst](https://www.palantir.com/docs/foundry/aip/analyst/overview?utm_source=chatgpt.com)
+
+**Palantir MCP**
+
+[Palantir MCP](https://www.palantir.com/docs/foundry/palantir-mcp/overview?utm_source=chatgpt.com)
+
+The current developer documentation explicitly describes MCP and AI FDE as mechanisms through which AI agents can participate in development and operational workflows while remaining within the platform's permission and governance framework. ([Palantir][14])
+
+---
+
+# Cross-cutting references
+
+These are worth adding to the report because they explain architectural principles that span multiple boxes.
+
+## Ontology as the central control plane
+
+[The Ontology System](https://www.palantir.com/docs/foundry/architecture-center/ontology-system?utm_source=chatgpt.com)
+
+Palantir's architecture documentation describes the Ontology as integrating **data, logic, action and security**, with applications, agents and automations operating above it. ([Palantir][6])
+
+## Platform architecture
+
+[Foundry Platform Overview](https://www.palantir.com/docs/foundry/platform-overview?utm_source=chatgpt.com)
+
+This is useful for explaining why AIP isn't simply an "LLM platform." Palantir positions it as operating together with Foundry's data/ontology/workflow capabilities.
+
+## Architecture Center
+
+[Palantir Architecture Center](https://www.palantir.com/docs/foundry/architecture-center/overview?utm_source=chatgpt.com)
+
+This is probably the best **single external link to put at the top of the report**.
+
+---
+
+# External standards worth citing
+
+For the "best practices" portion of your report, I would not rely exclusively on Palantir's own documentation. These provide independent architectural references.
+
+| Area                    | Authoritative source                                                                                                                    |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| AI risk                 | [NIST AI Risk Management Framework](https://www.nist.gov/itl/ai-risk-management-framework?utm_source=chatgpt.com)                       |
+| Generative AI risk      | [NIST Generative AI Profile](https://www.nist.gov/itl/ai-risk-management-framework/ai-rmf-generative-ai-profile?utm_source=chatgpt.com) |
+| LLM security            | [OWASP LLM Top 10](https://owasp.org/www-project-top-10-for-large-language-model-applications/?utm_source=chatgpt.com)                  |
+| Application security    | [OWASP ASVS](https://owasp.org/www-project-application-security-verification-standard/?utm_source=chatgpt.com)                          |
+| Zero Trust              | [NIST SP 800-207](https://csrc.nist.gov/pubs/sp/800/207/final?utm_source=chatgpt.com)                                                   |
+| Observability           | [OpenTelemetry](https://opentelemetry.io/docs/?utm_source=chatgpt.com)                                                                  |
+| Container orchestration | [Kubernetes Documentation](https://kubernetes.io/docs/?utm_source=chatgpt.com)                                                          |
+| Cloud native            | [CNCF](https://www.cncf.io/?utm_source=chatgpt.com)                                                                                     |
+| Event streaming         | [Apache Kafka](https://kafka.apache.org/documentation/?utm_source=chatgpt.com)                                                          |
+| Stream processing       | [Apache Flink](https://nightlies.apache.org/flink/flink-docs-stable/?utm_source=chatgpt.com)                                            |
+| CDC                     | [Debezium](https://debezium.io/documentation/?utm_source=chatgpt.com)                                                                   |
+| DevOps                  | [DORA](https://dora.dev/?utm_source=chatgpt.com)                                                                                        |
+| MCP                     | [Model Context Protocol Specification](https://modelcontextprotocol.io/specification/latest?utm_source=chatgpt.com)                     |
+
+## One important correction for the report
+
+Some labels in the image should **not** be treated as exact Palantir product names.
+
+For example, labels such as **"Semantic", "Kinetic", "Dynamic", "Human + AI Decision Model", "Smart Cache", "Dynamic Retry", "Opinionated", "Multimodal Compute Services"** are useful architectural concepts shown in Palantir's diagram, but they do not necessarily correspond one-to-one with a publicly documented product or API.
+
+The safest approach in the research report is therefore:
+
+**Image terminology → Palantir documented capability → specific documentation → independent industry practice**
+
+rather than assuming that every box represents a separately deployable Palantir component.
+
+That distinction is particularly important if you're using this analysis for an **enterprise architecture review or designing an AIP-like architecture**, because otherwise the diagram can easily be mistaken for a literal product/component dependency diagram. Palantir itself describes the diagram as **12 "general categories of capability"**, which supports treating it as a conceptual architecture rather than a complete component-level deployment diagram. ([Palantir][1])
+
+[1]: https://www.palantir.com/docs/foundry/architecture-center/aip-architecture?utm_source=chatgpt.com "AIP architecture overview • Palantir"
+[2]: https://www.palantir.com/docs/foundry/getting-started/foundry-platform-summary-llm?utm_source=chatgpt.com "Foundry platform summary for LLMs • Palantir"
+[3]: https://www.palantir.com/docs/foundry/model-catalog/overview?utm_source=chatgpt.com "AIP Model Catalog • Overview • Palantir"
+[4]: https://www.palantir.com/docs/foundry/aip-observability/overview?utm_source=chatgpt.com "Ontology and AIP observability • Overview • Palantir"
+[5]: https://www.palantir.com/docs/foundry/observability/overview?utm_source=chatgpt.com "Overview • Observability • Palantir"
+[6]: https://www.palantir.com/docs/foundry/architecture-center/ontology-system?utm_source=chatgpt.com "The Ontology system • Palantir"
+[7]: https://www.palantir.com/docs/foundry/ontology/core-concepts?utm_source=chatgpt.com "Core concepts • Palantir"
+[8]: https://www.palantir.com/docs/foundry/announcements/2026-02?utm_source=chatgpt.com "February 2026 • Announcements • Palantir"
+[9]: https://www.palantir.com/docs/foundry/security/overview?utm_source=chatgpt.com "Overview • Security • Palantir"
+[10]: https://www.palantir.com/docs/foundry/security/access-control-propagation?utm_source=chatgpt.com "Concepts • Access control propagation • Palantir"
+[11]: https://www.palantir.com/docs/foundry/getting-started/application-reference?utm_source=chatgpt.com "Application reference • Palantir"
+[12]: https://www.palantir.com/docs/foundry/ai-fde/security-and-governance?utm_source=chatgpt.com "AI FDE • Security and governance • Palantir"
+[13]: https://www.palantir.com/docs/foundry/architecture-center/overview?utm_source=chatgpt.com "Overview • Architecture center • Palantir"
+[14]: https://www.palantir.com/docs/foundry/palantir-mcp/overview?utm_source=chatgpt.com "Palantir MCP • Overview • Palantir"
+[15]: https://www.palantir.com/docs/foundry/ontology/applications?utm_source=chatgpt.com "Ontology-aware applications • Palantir"
