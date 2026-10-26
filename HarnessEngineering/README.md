@@ -1,0 +1,2 @@
+- https://github.com/walkinglabs/learn-harness-engineering
+- https://www.youtube.com/watch?v=2C_CefSQEAQ
